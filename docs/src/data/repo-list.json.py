@@ -11,7 +11,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from depanalysis.db_manager import DatabaseManager
 
 def main():
-    db_manager = DatabaseManager()
+    # Point to data directory in repo root (not docs/)
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    db_manager = DatabaseManager(data_dir=data_dir)
     repos = db_manager.list_analyzed_repos()
 
     # Output JSON
