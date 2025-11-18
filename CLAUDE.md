@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A Python dependency analysis tool that combines static structural analysis (AST parsing) with temporal behavioral analysis (Git history) to identify architectural issues, coupling problems, and maintenance hotspots. Inspired by NDepend for .NET.
+A multi-language dependency analysis tool that combines static structural analysis (AST parsing) with temporal behavioral analysis (Git history) to identify architectural issues, coupling problems, and maintenance hotspots. Inspired by NDepend for .NET.
+
+**Language Support**: The tool uses a language-agnostic core architecture supporting Python, TypeScript, JavaScript, C#, Java, Rust, C++, and Go. The initial MVP focuses on Python parser implementation, but the schema and architecture support polyglot repositories from the ground up.
 
 ## Architecture
 
@@ -12,17 +14,27 @@ A Python dependency analysis tool that combines static structural analysis (AST 
 
 The tool uses two separate SQLite databases as the primary data store:
 
-- **structure.db**: Contains AST-parsed structural relationships (modules, classes, functions, imports, calls, inheritance, decorators, type hints)
+- **structure.db**: Contains AST-parsed structural relationships across all supported languages
+  - Language-agnostic core: modules, classes, functions, imports, calls, inheritance
+  - Language-specific extensions: decorators, type hints, generic parameters, metadata
+  - Supports: Python, TypeScript, JavaScript, C#, Java, Rust, C++, Go
 - **history.db**: Contains Git history analysis (commits, file changes, authors, temporal coupling)
+  - 100% language-agnostic - works for any programming language
+  - Enables cross-language temporal coupling analysis
 
 These databases are the source of truth, not caches. Analysis is performed via SQL queries, materialized views, and Python only when SQL is insufficient (e.g., cycle detection).
 
 ### Core Components
 
-1. **Parser Component**: Parses Python AST and writes directly to structure.db
-   - Captures all relationships during initial parse (imports, calls, inheritance, decorators, type hints)
-   - Uses file hash tracking for incremental updates
-   - Only reparses files that have changed
+1. **Parser Component**: Language-specific parsers write to language-agnostic schema in structure.db
+   - **Language Detection**: File extension-based (.py, .ts, .cs, .java, .rs, .cpp, .go)
+   - **Python Parser (MVP)**: Parses Python AST and writes to structure.db
+     - Captures all relationships during initial parse (imports, calls, inheritance, decorators, type hints)
+     - Uses file hash tracking for incremental updates
+     - Only reparses files that have changed
+   - **Future Parsers**: TypeScript, C#, Java, Rust, C++, Go
+     - Each writes to same core schema (modules, classes, functions, dependencies)
+     - Language-specific features stored in extension tables
 
 2. **Git Analyzer Component**: Processes repository history and writes to history.db
    - Extracts temporal coupling (files that change together)
@@ -107,10 +119,10 @@ Use **Jaccard similarity** for comparing sets:
 - Run ANALYZE to keep query planner statistics current
 - Materialized views for complex aggregations
 
-## Python-Specific Challenges
+## Language-Specific Considerations
 
-### Import Resolution
-Handle Python's dynamic import mechanisms:
+### Python Challenges
+**Import Resolution**: Handle Python's dynamic import mechanisms:
 - Dynamic imports (`importlib`, `__import__`)
 - Conditional imports
 - Relative imports
@@ -118,6 +130,24 @@ Handle Python's dynamic import mechanisms:
 - Namespace packages
 
 Best effort tracking - capture what's statically analyzable, flag dynamic imports for manual review.
+
+### TypeScript/JavaScript Challenges
+- Multiple module systems (ES6, CommonJS, AMD)
+- Declaration files (.d.ts)
+- Dynamic imports and requires
+- Build artifact vs source code distinction
+
+### Other Language Considerations
+- **C#**: Partial classes, LINQ expressions, async patterns
+- **Java**: Inner classes, generics type erasure, package structure
+- **Rust**: Lifetimes, macros, trait implementations
+- **C++**: Header/source pairs, templates, preprocessor
+- **Go**: Package structure, interface implementation
+
+### Cross-Language Dependencies
+- API boundaries (REST, gRPC, GraphQL)
+- FFI/Interop calls (Python ↔ C++, C# ↔ native)
+- Shared type definitions (Protocol Buffers, JSON schemas)
 
 ## Export and Visualization
 
@@ -136,17 +166,33 @@ Best effort tracking - capture what's statically analyzable, flag dynamic import
 
 ### structure.db Schema
 
-Core entities: modules, classes, functions, variables
+**Language-Agnostic Core**:
+- **languages**: Registry of supported languages (python, typescript, csharp, java, rust, cpp, go)
+- **modules**: Source files with language_id foreign key
+- **classes**: Type definitions (classes, interfaces, structs, traits, enums) with kind field
+- **functions**: Callable units with kind field (function, method, constructor, lambda, async_function)
+- **variables**: Data entities with kind field (field, property, constant, local, parameter)
 
-Relationships: imports, calls, inheritance, contains, decorates, type_hints
+**Universal Relationships**:
+- **imports**: Dependencies with import_kind (import, require, using, include, use)
+- **calls**: Function invocations with call_kind
+- **inheritance**: Type relationships with relationship_kind (inherits, implements, extends, trait_impl)
 
-All relationship tables should have appropriate foreign keys and indexes.
+**Language-Specific Extensions**:
+- **decorators**: Python decorators, TypeScript decorators, C# attributes, Java annotations
+- **type_hints**: Type annotations across languages
+- **generic_parameters**: Parameterized types (TypeScript, C#, Java, C++, Rust)
+- **language_metadata**: Flexible key-value storage (Rust lifetimes, Python metaclasses, etc.)
+
+All relationship tables have appropriate foreign keys and indexes.
 
 ### history.db Schema
 
 Core entities: commits, file_changes, authors
 
 Derived data: temporal_coupling (pairwise co-change frequencies), author_ownership, churn_metrics
+
+**Note**: history.db is 100% language-agnostic and unchanged from original design.
 
 ## Out of Scope (MVP)
 

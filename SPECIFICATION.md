@@ -1,12 +1,14 @@
-# Python Dependency Analysis Tool Specification
+# Multi-Language Dependency Analysis Tool Specification
 
 ## 1. Overview
 
-A comprehensive Python codebase analysis tool that combines static structural analysis with temporal/behavioral analysis from version control history. The tool aims to identify architectural issues, coupling problems, and maintenance hotspots by analyzing both how code is structured and how it changes over time.
+A comprehensive codebase analysis tool that combines static structural analysis with temporal/behavioral analysis from version control history. The tool identifies architectural issues, coupling problems, and maintenance hotspots by analyzing both how code is structured and how it changes over time.
+
+**Multi-Language Support**: The tool is designed with a language-agnostic core architecture supporting Python, TypeScript, JavaScript, C#, Java, Rust, C++, and Go. The initial MVP implementation focuses on Python parsing, but the database schema and analysis engine support multiple languages.
 
 ### 1.1 Inspiration
 
-The design is inspired by NDepend for .NET, adapting its core concepts to Python's dynamic nature while leveraging the fact that typical Python codebases fit entirely in memory for analysis.
+The design is inspired by NDepend for .NET, adapting its core concepts for multiple programming languages while maintaining a unified analysis framework for polyglot repositories.
 
 ### 1.2 Key Differentiators
 
@@ -19,7 +21,9 @@ The design is inspired by NDepend for .NET, adapting its core concepts to Python
 ### 1.3 MVP Scope
 
 **Implementation Approach:**
-- Parse Python AST and Git history directly into SQLite databases
+- Language-agnostic SQLite schema supporting multiple languages
+- Python parser as initial implementation (AST-based)
+- Git history analysis (language-agnostic)
 - SQLite as primary data store (not a cache - it's the source of truth)
 - Metrics and analysis via SQL queries and views
 - Load subsets into memory only when needed for complex algorithms
@@ -28,18 +32,32 @@ The design is inspired by NDepend for .NET, adapting its core concepts to Python
 **Rationale:**
 SQLite is performant enough to be the primary data store. The entire dependency graph fits in memory, so SQLite with proper indexing provides fast queries. This eliminates the complexity of maintaining separate in-memory and persistent representations.
 
+**Multi-Language Architecture:**
+- Language-agnostic core schema (modules, classes, functions, dependencies)
+- Language-specific extension tables for unique features (e.g., Python decorators, Rust lifetimes)
+- Parser abstraction layer allows adding new language support without schema changes
+- Initial implementation: Python parser only
+- Future expansion: TypeScript, C#, Java, Rust, C++, Go parsers
+
 **Out of Scope (for initial release):**
 - CI/CD integration and automated workflows
+- Non-Python parser implementations (schema supports them, but parsers not implemented)
 
 ## 2. Architecture
 
 ### 2.1 Core Components
 
 #### 2.1.1 Parser Component
-- Extracts structural information from Python AST
-- Identifies modules, classes, functions, and their relationships
-- Calculates code complexity metrics
-- Handles Python-specific constructs (decorators, metaclasses, dynamic imports)
+- Language detection via file extension and content heuristics
+- Pluggable parser architecture supporting multiple languages
+- **Python Parser (MVP)**: Extracts structural information from Python AST
+  - Identifies modules, classes, functions, and their relationships
+  - Calculates code complexity metrics
+  - Handles Python-specific constructs (decorators, metaclasses, dynamic imports)
+- **Future Parsers**: TypeScript, C#, Java, Rust, C++, Go
+  - Each parser writes to the same language-agnostic core schema
+  - Language-specific features captured in extension tables
+  - Consistent metrics across all languages (complexity, coupling, etc.)
 
 #### 2.1.2 Git Analyzer Component
 - Processes repository history
@@ -166,19 +184,29 @@ SQLite is performant enough to be the primary data store. The entire dependency 
 
 ### 4.1 Structural Data Model
 
-#### Core Entities
-- **Modules**: Python files with their paths and metadata
-- **Classes**: Class definitions with location and metrics
-- **Functions**: Functions/methods with complexity metrics
-- **Variables**: Module-level and class attributes
+#### Core Entities (Language-Agnostic)
+- **Languages**: Registry of supported programming languages
+- **Modules**: Source files with their paths, language, and metadata
+- **Classes**: Type definitions (classes, interfaces, structs, traits, enums) with location and metrics
+  - Supports: Python classes, TypeScript interfaces, C# classes/structs, Java interfaces, Rust structs/traits
+- **Functions**: Callable units (functions, methods, constructors) with complexity metrics
+  - Includes kind differentiation: function, method, constructor, lambda, async_function, etc.
+- **Variables**: Data entities (fields, properties, constants, locals) with scope information
 
-#### Relationships
+#### Relationships (Language-Agnostic)
 - **Imports**: Module-to-module dependencies
-- **Calls**: Function-to-function invocations (best effort)
-- **Inheritance**: Class hierarchy relationships
+  - Maps to: Python import, TypeScript import, C# using, Java import, Rust use, C++ include
+  - Supports: relative imports, dynamic imports, wildcard imports
+- **Calls**: Function-to-function invocations (best effort static analysis)
+- **Inheritance**: Type hierarchy relationships
+  - Maps to: Python inheritance, TypeScript extends/implements, C# base classes, Java extends/implements, Rust trait implementation
 - **Contains**: Structural containment (module→class→function)
-- **Decorates**: Decorator applications
-- **Type Hints**: Type annotation relationships
+
+#### Language-Specific Features
+- **Decorators/Annotations**: Python decorators, TypeScript decorators, C# attributes, Java annotations
+- **Type Hints**: Type annotations across languages (Python type hints, TypeScript types, etc.)
+- **Generic Parameters**: Parameterized types for TypeScript, C#, Java, C++, Rust
+- **Language Metadata**: Flexible key-value storage for unique features (Rust lifetimes, Python metaclasses, etc.)
 
 ### 4.2 Temporal Data Model
 
@@ -207,18 +235,55 @@ SQLite is performant enough to be the primary data store. The entire dependency 
 - Analyze command to keep query planner statistics current
 - Materialized views for complex aggregations
 
-### 5.2 Python-Specific Challenges
+### 5.2 Language-Specific Considerations
 
-#### 5.2.1 Dynamic Nature
-- Handling dynamic imports
-- Dealing with runtime code generation
-- Managing conditional imports
+#### 5.2.1 Language Detection
+- File extension-based detection (.py, .ts, .cs, .java, .rs, .cpp, .go)
+- Shebang parsing for extensionless scripts
+- Content-based heuristics as fallback
+- Configuration overrides for ambiguous cases
 
-#### 5.2.2 Import Resolution
-- Package vs module imports
-- Relative imports
-- Namespace packages
-- Third-party vs standard library distinction
+#### 5.2.2 Python Challenges
+- **Dynamic Nature**: Handling dynamic imports, runtime code generation, conditional imports
+- **Import Resolution**: Package vs module imports, relative imports, namespace packages
+- **Metaclasses**: Tracking metaclass usage and its impact on class structure
+- **Decorators**: Capturing decorator chains and their effects
+
+#### 5.2.3 TypeScript/JavaScript Challenges
+- **Module Systems**: ES6 modules, CommonJS, AMD, UMD
+- **Type Definitions**: .d.ts declaration files, DefinitelyTyped integration
+- **Dynamic Imports**: import() expressions, require() calls
+- **Build Artifacts**: Distinguishing source from generated code
+
+#### 5.2.4 C# Challenges
+- **Project Structure**: Solution/project file parsing for module boundaries
+- **Partial Classes**: Tracking classes split across multiple files
+- **LINQ**: Capturing complex query expressions
+- **Async Patterns**: Task-based asynchrony tracking
+
+#### 5.2.5 Java Challenges
+- **Package Structure**: Aligning file system with package declarations
+- **Inner Classes**: Nested and anonymous class relationships
+- **Generics**: Type erasure implications for analysis
+- **Build Systems**: Maven/Gradle integration for dependency resolution
+
+#### 5.2.6 Rust Challenges
+- **Ownership Semantics**: Tracking lifetime annotations and borrow relationships
+- **Macros**: Procedural and declarative macro expansion
+- **Traits**: Trait implementation and bounds
+- **Cargo Integration**: Workspace and crate structure
+
+#### 5.2.7 C++ Challenges
+- **Header/Source Split**: Pairing .h/.hpp files with .cpp/.cc files
+- **Templates**: Template instantiation and specialization
+- **Preprocessor**: Macro expansion and conditional compilation
+- **Build Complexity**: CMake/Make integration for include paths
+
+#### 5.2.8 Cross-Language Dependencies
+- **API Boundaries**: REST endpoints, gRPC services, GraphQL schemas
+- **FFI/Interop**: Python calling C++, C# using native libraries, etc.
+- **Build System Integration**: Tracking cross-language build dependencies
+- **Shared Types**: Protocol buffers, JSON schemas, OpenAPI definitions
 
 ### 5.3 Design for Extension
 
@@ -239,26 +304,38 @@ SQLite is performant enough to be the primary data store. The entire dependency 
 - Identify high-risk changes before deployment
 - Assess impact radius of modifications
 - Predict potential breaking changes
+- Track cross-language boundary risks (frontend + backend changes)
 
 ### 6.2 Technical Debt Management
-- Locate maintenance hotspots
-- Prioritize refactoring efforts
+- Locate maintenance hotspots across all languages
+- Prioritize refactoring efforts based on combined metrics
 - Track debt accumulation over time
+- Identify language-specific anti-patterns
 
 ### 6.3 Architecture Governance
-- Enforce dependency rules
-- Detect architectural drift
+- Enforce dependency rules within and across languages
+- Detect architectural drift in polyglot systems
 - Validate intended vs actual structure
+- Monitor API boundary changes
 
 ### 6.4 Code Review Support
-- Highlight files that typically change together
+- Highlight files that typically change together (even across languages)
 - Identify missing test coverage for hotspots
 - Suggest additional reviewers based on coupling
+- Flag cross-language breaking changes
 
 ### 6.5 Onboarding Assistance
 - Identify core modules and their relationships
 - Show module ownership patterns
 - Highlight frequently changing areas
+- Provide language-specific codebase statistics
+
+### 6.6 Polyglot Repository Analysis
+- **Cross-Language Coupling**: Identify temporal coupling between frontend and backend
+- **Language Distribution**: Track codebase composition and growth by language
+- **Boundary Analysis**: Analyze API contracts and cross-language dependencies
+- **Hotspot Detection**: Find problematic areas regardless of language
+- **Unified Metrics**: Compare complexity and coupling across language boundaries
 
 ## 7. Non-Functional Requirements
 
