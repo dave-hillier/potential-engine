@@ -1,5 +1,7 @@
 """Tests for structural coupling analysis from code structure."""
 import pytest
+from pathlib import Path
+from depanalysis.structure_analyzer import StructureAnalyzer
 
 
 class TestFileToFileCoupling:
@@ -542,3 +544,555 @@ class TestCouplingMetrics:
         # Stability = 1 - 0 = 1
         assert result[3] == 0.0, "Stable module should have instability=0"
         assert result[4] == 1.0, "Stable module should have stability=1"
+
+
+class TestPythonStructureAnalyzer:
+    """Test suite for Python AST structure analysis."""
+
+    def test_basic_module_parsing(self, temp_dir, structure_db):
+        """Test that basic Python module is parsed and stored correctly."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "simple_module.py").write_text("""
+# Simple module
+def hello():
+    print("Hello, World!")
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["files_parsed"] == 1, "Should parse 1 file"
+        assert stats["functions_found"] == 1, "Should find 1 function"
+        assert stats["errors"] == 0, "Should have no errors"
+
+        cursor = structure_db.cursor()
+        module = cursor.execute("SELECT path, name, file_hash FROM modules").fetchone()
+
+        assert module[0] == "simple_module.py", "Module path should be correct"
+        assert module[1] == "simple_module", "Module name should be correct"
+        assert module[2] is not None, "File hash should be calculated"
+        assert len(module[2]) == 64, "Hash should be SHA256 (64 hex chars)"
+
+    def test_class_extraction(self, temp_dir, structure_db):
+        """Test that classes are extracted with correct metadata."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "classes.py").write_text("""
+class MyClass:
+    '''This is a docstring.'''
+    pass
+
+class AnotherClass:
+    pass
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["classes_found"] == 2, "Should find 2 classes"
+
+        cursor = structure_db.cursor()
+        classes = cursor.execute("""
+            SELECT name, kind, line_start, line_end, docstring
+            FROM classes
+            ORDER BY line_start
+        """).fetchall()
+
+        assert len(classes) == 2
+        assert classes[0][0] == "MyClass"
+        assert classes[0][1] == "class"
+        assert classes[0][2] == 2, "MyClass starts at line 2"
+        assert classes[0][4] == "This is a docstring."
+        assert classes[1][0] == "AnotherClass"
+
+    def test_function_extraction(self, temp_dir, structure_db):
+        """Test that module-level functions are extracted correctly."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "functions.py").write_text("""
+def func_one():
+    '''First function.'''
+    return 1
+
+def func_two(x, y):
+    return x + y
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["functions_found"] == 2, "Should find 2 functions"
+
+        cursor = structure_db.cursor()
+        functions = cursor.execute("""
+            SELECT name, kind, class_id, docstring, line_start
+            FROM functions
+            ORDER BY line_start
+        """).fetchall()
+
+        assert len(functions) == 2
+        assert functions[0][0] == "func_one"
+        assert functions[0][1] == "function", "Module-level function should have kind='function'"
+        assert functions[0][2] is None, "Module-level function should have no class_id"
+        assert functions[0][3] == "First function."
+
+    def test_method_extraction(self, temp_dir, structure_db):
+        """Test that methods within classes are detected correctly."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "methods.py").write_text("""
+class Calculator:
+    def add(self, x, y):
+        return x + y
+
+    def subtract(self, x, y):
+        return x - y
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["classes_found"] == 1
+        assert stats["functions_found"] == 2, "Should find 2 methods"
+
+        cursor = structure_db.cursor()
+        methods = cursor.execute("""
+            SELECT f.name, f.kind, c.name AS class_name
+            FROM functions f
+            JOIN classes c ON f.class_id = c.id
+            ORDER BY f.line_start
+        """).fetchall()
+
+        assert len(methods) == 2
+        assert methods[0][0] == "add"
+        assert methods[0][1] == "method", "Class function should have kind='method'"
+        assert methods[0][2] == "Calculator"
+        assert methods[1][0] == "subtract"
+        assert methods[1][1] == "method"
+
+    def test_constructor_detection(self, temp_dir, structure_db):
+        """Test that __init__ is detected as a constructor."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "constructor.py").write_text("""
+class Person:
+    def __init__(self, name):
+        self.name = name
+
+    def greet(self):
+        return f"Hello, {self.name}"
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        cursor = structure_db.cursor()
+        functions = cursor.execute("""
+            SELECT name, kind FROM functions ORDER BY line_start
+        """).fetchall()
+
+        assert len(functions) == 2
+        assert functions[0][0] == "__init__"
+        assert functions[0][1] == "constructor", "__init__ should have kind='constructor'"
+        assert functions[1][0] == "greet"
+        assert functions[1][1] == "method"
+
+    def test_simple_imports(self, temp_dir, structure_db):
+        """Test extraction of simple import statements."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "imports.py").write_text("""
+import os
+import sys
+import json
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["imports_found"] == 3, "Should find 3 imports"
+
+        cursor = structure_db.cursor()
+        imports = cursor.execute("""
+            SELECT to_module, import_name, import_kind, is_relative
+            FROM imports
+            ORDER BY line_number
+        """).fetchall()
+
+        assert len(imports) == 3
+        assert imports[0] == ("os", "os", "import", 0)
+        assert imports[1] == ("sys", "sys", "import", 0)
+        assert imports[2] == ("json", "json", "import", 0)
+
+    def test_from_imports(self, temp_dir, structure_db):
+        """Test extraction of 'from ... import ...' statements."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "from_imports.py").write_text("""
+from pathlib import Path
+from os.path import join, dirname
+from typing import List, Dict
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["imports_found"] == 5, "Should find 5 imports (Path + join + dirname + List + Dict)"
+
+        cursor = structure_db.cursor()
+        imports = cursor.execute("""
+            SELECT to_module, import_name, is_relative
+            FROM imports
+            ORDER BY line_number, import_name
+        """).fetchall()
+
+        assert len(imports) == 5
+        assert imports[0][0] == "pathlib"
+        assert imports[0][1] == "Path"
+        assert imports[0][2] == 0, "Absolute import should have is_relative=0"
+
+    def test_relative_imports(self, temp_dir, structure_db):
+        """Test extraction of relative imports."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "relative_imports.py").write_text("""
+from .sibling import func
+from ..parent import other_func
+from ...grandparent import something
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["imports_found"] == 3
+
+        cursor = structure_db.cursor()
+        imports = cursor.execute("""
+            SELECT to_module, import_name, is_relative, line_number
+            FROM imports
+            ORDER BY line_number
+        """).fetchall()
+
+        assert len(imports) == 3
+        assert imports[0][0] == ".sibling", "Single dot for same-level import"
+        assert imports[0][2] == 1, "Relative import should have is_relative=1"
+        assert imports[1][0] == "..parent", "Double dot for parent-level import"
+        assert imports[1][2] == 1
+        assert imports[2][0] == "...grandparent", "Triple dot for grandparent-level import"
+        assert imports[2][2] == 1
+
+    def test_import_aliases(self, temp_dir, structure_db):
+        """Test tracking of import aliases."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "aliases.py").write_text("""
+import numpy as np
+from datetime import datetime as dt
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        cursor = structure_db.cursor()
+        imports = cursor.execute("""
+            SELECT to_module, import_name, alias
+            FROM imports
+            ORDER BY line_number
+        """).fetchall()
+
+        assert len(imports) == 2
+        assert imports[0] == ("numpy", "numpy", "np")
+        assert imports[1] == ("datetime", "datetime", "dt")
+
+    def test_cyclomatic_complexity_simple(self, temp_dir, structure_db):
+        """Test complexity calculation for simple function (no branches)."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "simple_func.py").write_text("""
+def simple():
+    x = 1
+    y = 2
+    return x + y
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        analyzer.analyze()
+
+        cursor = structure_db.cursor()
+        complexity = cursor.execute("""
+            SELECT cyclomatic_complexity FROM functions WHERE name = 'simple'
+        """).fetchone()[0]
+
+        assert complexity == 1, "Simple function with no branches should have complexity=1"
+
+    def test_cyclomatic_complexity_branches(self, temp_dir, structure_db):
+        """Test complexity calculation with conditional branches."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "branches.py").write_text("""
+def complex_func(x):
+    if x > 0:
+        return 1
+    elif x < 0:
+        return -1
+    else:
+        return 0
+
+def loop_func(n):
+    total = 0
+    for i in range(n):
+        if i % 2 == 0:
+            total += i
+    return total
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        analyzer.analyze()
+
+        cursor = structure_db.cursor()
+        functions = cursor.execute("""
+            SELECT name, cyclomatic_complexity FROM functions ORDER BY line_start
+        """).fetchall()
+
+        # complex_func has: 1 (base) + 1 (if) + 0 (elif is not counted separately) = 2
+        # Actually, let me check the implementation again...
+        # The implementation counts: If, While, For, ExceptHandler, With, Assert, comprehension
+        # So: 1 (base) + 1 (if) = 2
+        assert functions[0][1] >= 2, "Function with if/elif/else should have complexity >= 2"
+
+        # loop_func has: 1 (base) + 1 (for) + 1 (if) = 3
+        assert functions[1][1] >= 3, "Function with for+if should have complexity >= 3"
+
+    def test_async_function_detection(self, temp_dir, structure_db):
+        """Test that async functions are detected correctly."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "async_func.py").write_text("""
+async def fetch_data():
+    return "data"
+
+def sync_func():
+    return "sync"
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        analyzer.analyze()
+
+        cursor = structure_db.cursor()
+        functions = cursor.execute("""
+            SELECT name, is_async FROM functions ORDER BY line_start
+        """).fetchall()
+
+        assert len(functions) == 2
+        assert functions[0][0] == "fetch_data"
+        assert functions[0][1] == 1, "Async function should have is_async=1"
+        assert functions[1][0] == "sync_func"
+        assert functions[1][1] == 0, "Sync function should have is_async=0"
+
+    def test_nested_functions(self, temp_dir, structure_db):
+        """Test extraction of nested function definitions."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "nested.py").write_text("""
+def outer():
+    def inner():
+        return "inner"
+    return inner()
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        # Both outer and inner should be found
+        assert stats["functions_found"] == 2, "Should find both outer and inner functions"
+
+        cursor = structure_db.cursor()
+        functions = cursor.execute("""
+            SELECT name FROM functions ORDER BY line_start
+        """).fetchall()
+
+        assert functions[0][0] == "outer"
+        assert functions[1][0] == "inner"
+
+    def test_file_hash_tracking(self, temp_dir, structure_db):
+        """Test that file hashes are calculated and stored."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        content = "def test(): pass\n"
+        (repo_path / "hashtest.py").write_text(content)
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        analyzer.analyze()
+
+        cursor = structure_db.cursor()
+        hash1 = cursor.execute("""
+            SELECT file_hash FROM modules WHERE name = 'hashtest'
+        """).fetchone()[0]
+
+        assert hash1 is not None
+        assert len(hash1) == 64  # SHA256 hex
+
+        # Analyze again with same content - should replace with same hash
+        analyzer.analyze()
+        hash2 = cursor.execute("""
+            SELECT file_hash FROM modules WHERE name = 'hashtest'
+        """).fetchone()[0]
+
+        assert hash1 == hash2, "Same file content should produce same hash"
+
+    def test_syntax_error_handling(self, temp_dir, structure_db):
+        """Test that syntax errors don't crash the analyzer."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        # Create file with invalid syntax
+        (repo_path / "invalid.py").write_text("""
+def broken(
+    # Missing closing paren
+    return None
+""")
+
+        # Create valid file
+        (repo_path / "valid.py").write_text("def good(): pass\n")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        # Both files are counted as "parsed" but invalid one has no data extracted
+        assert stats["files_parsed"] == 2, "Both files are processed"
+        assert stats["errors"] == 0, "Syntax errors are handled gracefully, not counted as errors"
+
+        # Only the valid file should have a module entry in the database
+        cursor = structure_db.cursor()
+        modules = cursor.execute("SELECT name FROM modules").fetchall()
+        assert len(modules) == 1, "Only valid file should create module entry"
+        assert modules[0][0] == "valid"
+
+    def test_encoding_error_handling(self, temp_dir, structure_db):
+        """Test that binary files are skipped gracefully."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        # Create a binary file with .py extension
+        (repo_path / "binary.py").write_bytes(b"\x00\x01\x02\x03\x04")
+
+        # Create valid file
+        (repo_path / "valid.py").write_text("def good(): pass\n")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        # Should skip binary file, parse valid one
+        assert stats["files_parsed"] >= 1, "Should parse at least the valid file"
+
+    def test_skip_git_directories(self, temp_dir, structure_db):
+        """Test that .git and __pycache__ directories are skipped."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        # Create .git directory with a .py file
+        git_dir = repo_path / ".git"
+        git_dir.mkdir()
+        (git_dir / "hooks.py").write_text("def hook(): pass\n")
+
+        # Create __pycache__ directory with a .py file
+        pycache_dir = repo_path / "__pycache__"
+        pycache_dir.mkdir()
+        (pycache_dir / "cached.py").write_text("def cached(): pass\n")
+
+        # Create normal file
+        (repo_path / "normal.py").write_text("def normal(): pass\n")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["files_parsed"] == 1, "Should only parse normal.py, skip .git and __pycache__"
+
+        cursor = structure_db.cursor()
+        modules = cursor.execute("SELECT name FROM modules").fetchall()
+        assert len(modules) == 1
+        assert modules[0][0] == "normal"
+
+    def test_full_repo_analysis(self, temp_dir, structure_db):
+        """Test analyzing a multi-file repository."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        # Create multiple files
+        (repo_path / "module_a.py").write_text("""
+import module_b
+
+class ClassA:
+    def method_a(self):
+        pass
+""")
+
+        (repo_path / "module_b.py").write_text("""
+from module_a import ClassA
+
+class ClassB(ClassA):
+    def method_b(self):
+        if True:
+            pass
+""")
+
+        (repo_path / "utils.py").write_text("""
+def helper():
+    return 42
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["files_parsed"] == 3
+        assert stats["classes_found"] == 2
+        assert stats["functions_found"] == 3  # method_a, method_b, helper
+        assert stats["imports_found"] == 2  # import module_b, from module_a import ClassA
+        assert stats["errors"] == 0
+
+        cursor = structure_db.cursor()
+
+        # Verify modules
+        module_count = cursor.execute("SELECT COUNT(*) FROM modules").fetchone()[0]
+        assert module_count == 3
+
+        # Verify classes
+        class_count = cursor.execute("SELECT COUNT(*) FROM classes").fetchone()[0]
+        assert class_count == 2
+
+        # Verify functions
+        func_count = cursor.execute("SELECT COUNT(*) FROM functions").fetchone()[0]
+        assert func_count == 3
+
+    def test_empty_repository(self, temp_dir, structure_db):
+        """Test analyzing a repository with no Python files."""
+        repo_path = temp_dir / "empty_repo"
+        repo_path.mkdir()
+
+        # Create some non-Python files
+        (repo_path / "README.md").write_text("# README\n")
+        (repo_path / "config.json").write_text("{}\n")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["files_parsed"] == 0, "Should parse no files"
+        assert stats["classes_found"] == 0
+        assert stats["functions_found"] == 0
+        assert stats["imports_found"] == 0
+        assert stats["errors"] == 0

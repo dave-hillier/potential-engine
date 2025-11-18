@@ -9,6 +9,7 @@ import click
 from depanalysis.db_manager import DatabaseManager, get_repo_name_from_path
 from depanalysis.git_analyzer import GitAnalyzer, discover_repositories
 from depanalysis.metrics import MetricsAnalyzer
+from depanalysis.structure_analyzer import StructureAnalyzer
 
 
 @click.group()
@@ -84,21 +85,37 @@ def analyze_repo(repository: Path):
 
     try:
         # Initialize database
-        _, history_db = db_manager.initialize_repo_databases(repo_name)
-        conn = db_manager.get_connection(repo_name, "history")
+        structure_db, history_db = db_manager.initialize_repo_databases(repo_name)
+        
+        # 1. Analyze Git History
+        click.echo("Analyzing Git history...")
+        conn_hist = db_manager.get_connection(repo_name, "history")
+        git_analyzer = GitAnalyzer(repository, conn_hist)
+        stats_hist = git_analyzer.analyze()
+        conn_hist.close()
 
-        # Analyze Git history
-        analyzer = GitAnalyzer(repository, conn)
-        stats = analyzer.analyze()
+        click.echo(f"  ✓ Processed {stats_hist['commits_processed']} commits")
+        click.echo(f"  ✓ Found {stats_hist['authors_found']} authors")
+        click.echo(f"  ✓ Tracked {stats_hist['files_tracked']} files")
+        click.echo(f"  ✓ Calculated {stats_hist['temporal_couplings']} temporal couplings")
 
-        click.echo(f"✓ Processed {stats['commits_processed']} commits")
-        click.echo(f"✓ Found {stats['authors_found']} authors")
-        click.echo(f"✓ Tracked {stats['files_tracked']} files")
-        click.echo(f"✓ Calculated {stats['temporal_couplings']} temporal couplings")
+        # 2. Analyze Structure
+        click.echo("\nAnalyzing Code Structure...")
+        conn_struct = db_manager.get_connection(repo_name, "structure")
+        struct_analyzer = StructureAnalyzer(repository, conn_struct)
+        stats_struct = struct_analyzer.analyze()
+        conn_struct.close()
 
-        conn.close()
+        click.echo(f"  ✓ Parsed {stats_struct['files_parsed']} Python files")
+        click.echo(f"  ✓ Found {stats_struct['classes_found']} classes")
+        click.echo(f"  ✓ Found {stats_struct['functions_found']} functions")
+        click.echo(f"  ✓ Found {stats_struct['imports_found']} imports")
+        if stats_struct['errors'] > 0:
+            click.echo(f"  ! Encountered {stats_struct['errors']} parsing errors")
 
-        click.echo(f"\nData stored in {history_db}")
+        click.echo(f"\nData stored in:")
+        click.echo(f"  - {history_db}")
+        click.echo(f"  - {structure_db}")
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
