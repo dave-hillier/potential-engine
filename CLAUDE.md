@@ -178,14 +178,30 @@ Best effort tracking - capture what's statically analyzable, flag dynamic import
 - **SQLite**: Portable database files
 
 ### Visualization
-- **Python API**: Thin wrapper over SQLite, returns dicts/sets/lists or Pandas DataFrames
-- **Observable Framework** (implemented): Interactive web-based dashboards in `docs/`
+
+**All visualization code lives in the `docs/` directory**. The visualization layer consists of three coupled components:
+
+1. **Database schemas** (`data/<repo>/*.db`) - Source of truth for all metrics
+2. **Data loader scripts** (`docs/data/*.py`) - Python scripts that query databases and export JSON
+3. **Observable pages** (`docs/*.md`) - Web UI that renders the data
+
+**Important**: Changes to visualizations often require coordinated updates across all three layers. For example, adding a new metric requires:
+- Database schema changes (if not already captured)
+- New or updated data loader scripts to query and export the metric
+- Observable page updates to display the visualization
+
+**Python API**: Thin wrapper over SQLite, returns dicts/sets/lists or Pandas DataFrames
+
+**Observable Framework** (implemented): Interactive web-based dashboards
   - Development: `cd docs && npm run dev` → http://localhost:3000
   - Build: `cd docs && npm run build` → static site in `dist/`
   - Data loaders: Python scripts in `docs/data/` export JSON for Observable pages
-- **Jupyter/Marimo**: Integration via Python API (future)
+
+**Jupyter/Marimo**: Integration via Python API (future)
 
 ### Observable Framework Implementation
+
+**Location**: All visualization code is in the `docs/` directory.
 
 **Commands**:
 ```bash
@@ -196,12 +212,12 @@ npm run build        # Build static site
 npm run deploy       # Deploy to Observable
 ```
 
-**Pages**:
-- `/` - Landing page with repository overview
+**Pages** (in `docs/`):
+- `/` (`index.md`) - Landing page with repository overview
 - `/repo/{name}` - Individual repository dashboards (high-churn, multi-author, simple-linear)
-- `/coupling` - Temporal coupling network visualization (D3 force-directed graph)
-- `/authors` - Author analytics and contribution patterns
-- `/compare` - Cross-repository comparison
+- `/coupling` (`coupling.md`) - Temporal coupling network visualization (D3 force-directed graph)
+- `/authors` (`authors.md`) - Author analytics and contribution patterns
+- `/compare` (`compare.md`) - Cross-repository comparison
 
 **Data Loaders** (`docs/data/*.py`):
 - `repo-list.json.py` - List all analyzed repositories
@@ -210,7 +226,13 @@ npm run deploy       # Deploy to Observable
 - `coupling.json.py <repo>` - Temporal coupling data
 - `authors.json.py <repo>` - Author statistics
 
-Data loaders are Python scripts that query SQLite databases and output JSON, executed by Observable Framework during page rendering.
+Data loaders are Python scripts that query SQLite databases (`data/<repo>/*.db`) and output JSON, executed by Observable Framework during page rendering.
+
+**Visualization Update Workflow**:
+When adding new visualizations or metrics, coordinate changes across:
+1. Database schema (if needed) in `depanalysis/db/schema.sql`
+2. Data loader scripts in `docs/data/` to extract and format data
+3. Observable pages in `docs/` to display the visualization
 
 ## Data Models
 

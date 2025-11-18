@@ -43,7 +43,12 @@ depanalysis list
 
 ## Interactive Reports
 
-View analysis results in an interactive web dashboard using Observable Framework:
+**All visualization lives in the `docs/` directory** using Observable Framework. Changes to visualizations may require updates to:
+- Data loader scripts (`docs/data/*.py`)
+- Database schemas (`data/<repo>/history.db` or `structure.db`)
+- Observable pages (`docs/*.md` and `docs/repo/*.md`)
+
+View analysis results in an interactive web dashboard:
 
 ```bash
 # Start development server
@@ -184,7 +189,7 @@ ruff check depanalysis/
 
 ## Observable Framework
 
-The `docs/` directory contains an Observable Framework project for interactive reports.
+**The `docs/` directory contains all visualization code** as an Observable Framework project.
 
 **Structure**:
 ```
@@ -207,7 +212,12 @@ docs/
 └── compare.md               # Cross-repo comparison
 ```
 
-**Data Loaders**: Python scripts that query SQLite databases and export JSON for Observable to consume.
+**Data Loaders**: Python scripts in `docs/data/` that query SQLite databases (`data/<repo>/*.db`) and export JSON for Observable pages to consume.
+
+**Important**: Changes to visualizations often require coordinated updates:
+1. Database schema changes in `depanalysis/db/` if new data is needed
+2. Data loader scripts in `docs/data/` to query and export the data
+3. Observable pages in `docs/` to render the visualizations
 
 ## License
 
