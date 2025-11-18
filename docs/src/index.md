@@ -5,12 +5,8 @@ Welcome to the interactive analysis dashboard for your code repositories. Explor
 ## Analyzed Repositories
 
 ```js
-const repos = FileAttachment("./data/repo-list.json.py", {cache: false}).json({
-  command: ["../../venv/bin/python3", "./data/repo-list.json.py"]
-});
-const summaries = FileAttachment("./data/all-repos-summary.json.py", {cache: false}).json({
-  command: ["../../venv/bin/python3", "./data/all-repos-summary.json.py"]
-});
+const repos = FileAttachment("./data/repo-list.json").json();
+const summaries = FileAttachment("./data/all-repos-summary.json").json();
 ```
 
 ```js
