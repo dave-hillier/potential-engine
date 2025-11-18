@@ -163,4 +163,4 @@ display(Inputs.table(authors, {
 
 ---
 
-[← Back to Overview](./) | [View Coupling Network](./coupling) | [Compare Repositories](./compare)
+[← Back to Overview](./) | [Dependency Matrix](./dependency-matrix) | [Coupling Network](./coupling) | [Compare Repositories](./compare)

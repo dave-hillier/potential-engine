@@ -162,4 +162,4 @@ display(Inputs.table(coupling, {
 
 ---
 
-[← Back to Overview](./) | [View Author Analytics](./authors) | [Compare Repositories](./compare)
+[← Back to Overview](./) | [Dependency Matrix](./dependency-matrix) | [Author Analytics](./authors) | [Compare Repositories](./compare)

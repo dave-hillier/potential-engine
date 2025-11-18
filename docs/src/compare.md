@@ -180,4 +180,4 @@ Plot.plot({
 
 ---
 
-[← Back to Overview](./) | [View Coupling Network](./coupling) | [View Author Analytics](./authors)
+[← Back to Overview](./) | [Dependency Matrix](./dependency-matrix) | [Coupling Network](./coupling) | [Author Analytics](./authors)

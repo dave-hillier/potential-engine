@@ -34,6 +34,12 @@ const repoCards = summaries.map(repo => html`
 
 <div class="grid-2">
   <div class="card">
+    <h3>📊 Dependency Matrix</h3>
+    <p>NDepend-style dependency structure matrix showing structural and temporal coupling between files.</p>
+    <a href="./dependency-matrix">View Matrix →</a>
+  </div>
+
+  <div class="card">
     <h3>🔗 Temporal Coupling</h3>
     <p>Explore files that frequently change together. Identify hidden dependencies and architectural issues.</p>
     <a href="./coupling">View Coupling Network →</a>
@@ -49,11 +55,6 @@ const repoCards = summaries.map(repo => html`
     <h3>📊 Compare Repositories</h3>
     <p>Side-by-side comparison of metrics across multiple repositories.</p>
     <a href="./compare">Compare Repos →</a>
-  </div>
-
-  <div class="card">
-    <h3>📈 All Metrics</h3>
-    <p>Click on any repository above to see detailed churn metrics, code age, and temporal coupling analysis.</p>
   </div>
 </div>
 
