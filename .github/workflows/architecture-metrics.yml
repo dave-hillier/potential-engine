@@ -1,0 +1,125 @@
+# Architecture Metrics Reporting
+#
+# Generates architecture metrics reports and tracks trends over time.
+# Does not fail the build - informational only.
+
+name: Architecture Metrics
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Run weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  generate-metrics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install depanalysis
+        run: |
+          pip install -e .
+
+      - name: Analyze repository
+        run: |
+          depanalysis analyze-repo .
+
+      - name: Generate metrics report
+        run: |
+          REPO_NAME=$(basename $(pwd))
+
+          echo "# Architecture Metrics Report" > metrics-report.md
+          echo "Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> metrics-report.md
+          echo "" >> metrics-report.md
+
+          # Churn metrics
+          echo "## Top 10 High-Churn Files" >> metrics-report.md
+          depanalysis show-metrics $REPO_NAME --churn >> metrics-report.md
+
+          # Temporal coupling
+          echo "" >> metrics-report.md
+          echo "## High Temporal Coupling" >> metrics-report.md
+          depanalysis show-metrics $REPO_NAME --coupling >> metrics-report.md
+
+          # Author stats
+          echo "" >> metrics-report.md
+          echo "## Author Statistics" >> metrics-report.md
+          depanalysis show-metrics $REPO_NAME --authors >> metrics-report.md
+
+      - name: Export metrics to CSV
+        run: |
+          REPO_NAME=$(basename $(pwd))
+          mkdir -p metrics-export
+
+          depanalysis show-metrics $REPO_NAME \
+            --churn \
+            --export-csv metrics-export/churn.csv
+
+          depanalysis show-metrics $REPO_NAME \
+            --coupling \
+            --export-csv metrics-export/coupling.csv
+
+          depanalysis show-metrics $REPO_NAME \
+            --authors \
+            --export-csv metrics-export/authors.csv
+
+      - name: Run validation (informational)
+        continue-on-error: true
+        run: |
+          REPO_NAME=$(basename $(pwd))
+
+          # Run validation without failing
+          depanalysis validate $REPO_NAME \
+            --no-fail-on-error \
+            --no-fail-on-warning \
+            > validation-report.txt 2>&1 || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: architecture-metrics
+          path: |
+            metrics-report.md
+            metrics-export/
+            validation-report.txt
+            data/
+          retention-days: 90
+
+      - name: Create issue for hotspots (optional)
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('metrics-report.md', 'utf8');
+
+            // Check if there's an existing metrics issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['architecture-metrics'],
+              state: 'open'
+            });
+
+            if (issues.data.length === 0) {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Weekly Architecture Metrics - ${new Date().toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['architecture-metrics', 'automated']
+              });
+            }

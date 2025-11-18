@@ -1,0 +1,92 @@
+# Example Architecture Rules Configuration for depanalysis
+#
+# Copy this file to .depanalysis.yml and customize for your project.
+# Use with: depanalysis validate <repo-name>
+
+# Coupling and dependency thresholds
+thresholds:
+  coupling:
+    # Maximum outgoing dependencies (efferent coupling)
+    max_efferent_coupling: 20
+
+    # Maximum incoming dependencies (afferent coupling)
+    max_afferent_coupling: 50
+
+    # Maximum instability metric: Ce / (Ca + Ce)
+    # Range: 0.0 (stable) to 1.0 (unstable)
+    # Recommendation: Core modules < 0.3, UI modules < 0.8
+    max_instability: 0.8
+
+  complexity:
+    # Maximum cyclomatic complexity per function
+    # Recommendation: 10-15 for maintainability
+    max_cyclomatic_complexity: 15
+
+    # Maximum total complexity per file
+    max_file_complexity: 100
+
+  churn:
+    # Maximum file churn (sum of additions + deletions)
+    # High churn + high complexity = maintenance hotspot
+    max_file_churn: 100
+
+    # Maximum hotspot score (composite metric)
+    # Range: 0.0 (low risk) to 1.0 (high risk)
+    max_hotspot_score: 0.9
+
+  temporal_coupling:
+    # Maximum temporal coupling similarity (Jaccard)
+    # Error threshold - files that almost always change together
+    max_temporal_coupling_similarity: 0.9
+
+    # Warning threshold - files that frequently change together
+    warn_temporal_coupling_similarity: 0.7
+
+# Circular dependency rules
+circular_dependencies:
+  # Allow circular dependencies?
+  # Set to false for strict layered architecture
+  allow: false
+
+  # Maximum number of circular dependency cycles allowed
+  # Only checked if allow: true
+  max_cycles: 0
+
+# Forbidden imports (layer violations)
+# Prevent architectural boundary violations
+forbidden_imports:
+  - from: "ui/*"
+    to: "database/*"
+    reason: "UI layer should not directly access database - use service layer"
+
+  - from: "domain/*"
+    to: "infrastructure/*"
+    reason: "Domain should not depend on infrastructure (dependency inversion)"
+
+# File size and complexity limits
+file_limits:
+  # Maximum lines per file
+  # Recommendation: 300-500 lines
+  max_lines_per_file: 500
+
+  # Maximum functions per file
+  # Recommendation: 20-30 functions
+  max_functions_per_file: 30
+
+# Examples for different architecture styles:
+#
+# Microservices:
+#   - Low coupling between services
+#   - High cohesion within services
+#   - max_efferent_coupling: 10
+#   - max_temporal_coupling_similarity: 0.5
+#
+# Monolith with layers:
+#   - Strict layer boundaries (forbidden_imports)
+#   - Moderate coupling within layers
+#   - allow_circular_dependencies: false
+#
+# Legacy codebase modernization:
+#   - Higher initial thresholds
+#   - Gradually decrease over time
+#   - max_cyclomatic_complexity: 25 → 15 → 10

@@ -4,12 +4,20 @@ Python dependency and Git history analyzer combining static structural analysis 
 
 ## Features
 
+### Analysis & Metrics
 - **Git History Analysis**: Extract commits, file changes, and temporal coupling metrics
 - **Temporal Coupling Detection**: Identify files that frequently change together using Jaccard similarity
 - **Author Analytics**: Track contributor patterns and code ownership
 - **Churn Metrics**: Measure frequency and magnitude of changes
+- **Structural Analysis**: Python AST parsing for modules, classes, functions, imports, complexity
 - **Interactive Reports**: Observable Framework dashboards with visualizations
 - **Multi-Repository Support**: Analyze multiple repositories with cross-repo comparisons
+
+### Integration & Ecosystem (Tier 4 - NEW! 🎉)
+- **CI/CD Gates**: Enforce architectural rules in pipelines with configurable thresholds
+- **Migration Planning**: Track Python 2→3, framework migrations, deprecation patterns
+- **PR Enrichment**: Automated architectural impact analysis in pull requests
+- **IDE Integration**: Real-time feedback foundation (VS Code, PyCharm ready)
 
 ## Installation
 
@@ -114,6 +122,30 @@ depanalysis compare-repos <repo1> <repo2> [repo3...]
 # List all analyzed repositories
 depanalysis list
 ```
+
+### CI/CD & Validation (NEW)
+
+```bash
+# Validate repository against architectural rules
+depanalysis validate <repo_name>
+depanalysis validate <repo_name> --config .depanalysis.yml
+
+# Analyze architectural diff between branches
+depanalysis diff . main
+depanalysis diff . main --head-ref feature-branch --output report.md
+```
+
+### Migration Planning (NEW)
+
+```bash
+# Scan for migration patterns
+depanalysis migration scan . --config migrations/python2to3.yml
+
+# View migration progress
+depanalysis migration progress <repo_name> <migration_id>
+```
+
+See [TIER4_FEATURES.md](docs/TIER4_FEATURES.md) for detailed documentation.
 
 ## Data Storage
 

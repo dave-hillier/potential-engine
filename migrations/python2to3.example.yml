@@ -1,0 +1,112 @@
+# Example Migration Configuration: Python 2 to Python 3
+#
+# Track migration from Python 2 to Python 3 syntax and APIs
+# Usage: depanalysis migration scan /path/to/repo --config migrations/python2to3.example.yml
+
+migration_id: "python2to3"
+name: "Python 2 to 3 Migration"
+description: "Track migration from Python 2 to Python 3 syntax, APIs, and best practices"
+target_completion_date: "2024-12-31"
+tags: ["migration", "python3", "modernization"]
+
+patterns:
+  # Print statement (most common)
+  - id: "print_statement"
+    name: "Print Statement"
+    description: "Python 2 print statement (should be print() function)"
+    type: "regex"
+    pattern: '^\s*print\s+(?!\()'
+    severity: "high"
+    category: "migration"
+    replacement: "Replace with print() function"
+    file_patterns: ["**/*.py"]
+
+  # Division operator
+  - id: "future_division"
+    name: "Future Division Import"
+    description: "Check for __future__ division import (needed in Python 2, default in Python 3)"
+    type: "import"
+    pattern: "from __future__ import division"
+    severity: "low"
+    category: "migration"
+    replacement: "Can be removed in Python 3-only code"
+
+  # Unicode literals
+  - id: "unicode_literals"
+    name: "Unicode Literals Import"
+    description: "Check for unicode_literals import"
+    type: "import"
+    pattern: "from __future__ import unicode_literals"
+    severity: "low"
+    category: "migration"
+    replacement: "Can be removed in Python 3-only code"
+
+  # Old-style string formatting
+  - id: "percent_formatting"
+    name: "Percent String Formatting"
+    description: "Old-style % string formatting (prefer f-strings or .format())"
+    type: "regex"
+    pattern: '"\s*%[sd]'
+    severity: "medium"
+    category: "modernization"
+    replacement: "Use f-strings or .format() method"
+
+  # Raw_input
+  - id: "raw_input"
+    name: "raw_input() function"
+    description: "Python 2 raw_input() (renamed to input() in Python 3)"
+    type: "call"
+    pattern: "raw_input"
+    severity: "critical"
+    category: "migration"
+    replacement: "Replace with input()"
+
+  # xrange
+  - id: "xrange"
+    name: "xrange() function"
+    description: "Python 2 xrange() (renamed to range() in Python 3)"
+    type: "call"
+    pattern: "xrange"
+    severity: "high"
+    category: "migration"
+    replacement: "Replace with range()"
+
+  # iteritems, iterkeys, itervalues
+  - id: "dict_iter_methods"
+    name: "dict.iteritems/iterkeys/itervalues"
+    description: "Python 2 dict iteration methods (removed in Python 3)"
+    type: "regex"
+    pattern: '\.(iteritems|iterkeys|itervalues)\('
+    severity: "high"
+    category: "migration"
+    replacement: "Use .items(), .keys(), .values() and wrap with iter() if needed"
+
+  # Exception syntax
+  - id: "old_exception_syntax"
+    name: "Old Exception Syntax"
+    description: "Python 2 exception syntax: except Exception, e"
+    type: "regex"
+    pattern: 'except\s+\w+\s*,\s*\w+'
+    severity: "critical"
+    category: "migration"
+    replacement: "Use 'except Exception as e:'"
+
+  # File() builtin
+  - id: "file_builtin"
+    name: "file() builtin"
+    description: "Python 2 file() builtin (removed in Python 3)"
+    type: "call"
+    pattern: "file"
+    severity: "medium"
+    category: "migration"
+    replacement: "Use open()"
+
+  # Absolute imports
+  - id: "absolute_import"
+    name: "Absolute Import"
+    description: "Check for __future__ absolute_import (needed in Python 2, default in Python 3)"
+    type: "import"
+    pattern: "from __future__ import absolute_import"
+    severity: "low"
+    category: "migration"
+    replacement: "Can be removed in Python 3-only code"

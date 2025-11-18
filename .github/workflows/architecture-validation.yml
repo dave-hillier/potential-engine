@@ -1,0 +1,67 @@
+# Architecture Validation Workflow
+#
+# Enforces architectural rules on every pull request.
+# Fails the build if violations exceed configured thresholds.
+
+name: Architecture Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  validate-architecture:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          # Fetch full history for temporal coupling analysis
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install depanalysis
+        run: |
+          pip install -e .
+
+      - name: Analyze repository
+        run: |
+          # Analyze current repository
+          depanalysis analyze-repo .
+
+      - name: Validate architectural rules
+        id: validate
+        run: |
+          # Validate against .depanalysis.yml
+          # Fails if errors found (--fail-on-error is default)
+          depanalysis validate $(basename $(pwd)) \
+            --config .depanalysis.yml \
+            --fail-on-error \
+            --no-fail-on-warning
+
+      - name: Archive analysis results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: architecture-analysis
+          path: data/
+          retention-days: 30
+
+      - name: Comment on PR (optional)
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '❌ Architecture validation failed. Please review the architectural rules in `.depanalysis.yml` and fix the violations.'
+            })

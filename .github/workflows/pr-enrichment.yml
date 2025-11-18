@@ -1,0 +1,103 @@
+# PR Architectural Impact Analysis
+#
+# Analyzes architectural impact of pull requests and posts
+# a comment with metrics comparison.
+
+name: PR Architectural Impact
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  analyze-impact:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Full history for diff analysis
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install depanalysis
+        run: |
+          pip install -e .
+
+      - name: Analyze architectural diff
+        id: diff
+        run: |
+          # Compare PR branch against base branch
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          HEAD_REF="${{ github.event.pull_request.head.ref }}"
+
+          echo "Analyzing diff: $BASE_REF → $HEAD_REF"
+
+          # Run diff analysis and save to file
+          depanalysis diff . origin/$BASE_REF \
+            --head-ref HEAD \
+            --output diff-report.md || true
+
+          # Check if report was generated
+          if [ -f diff-report.md ]; then
+            echo "report_generated=true" >> $GITHUB_OUTPUT
+          else
+            echo "report_generated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post PR comment
+        if: steps.diff.outputs.report_generated == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('diff-report.md', 'utf8');
+
+            // Find existing bot comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Architectural Impact Analysis')
+            );
+
+            const commentBody = report + '\n\n---\n_Updated: ' + new Date().toISOString() + '_';
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+
+      - name: Archive diff report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: architectural-diff
+          path: diff-report.md
+          retention-days: 30
+          if-no-files-found: ignore
