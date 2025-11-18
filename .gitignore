@@ -51,7 +51,7 @@ dmypy.json
 .pytype/
 
 # Data files (generated databases)
-data/
+/data/
 *.db
 *.sqlite
 *.sqlite3

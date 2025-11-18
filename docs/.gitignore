@@ -1,0 +1,10 @@
+# Node
+node_modules/
+.observablehq/
+
+# Build output
+dist/
+.cache/
+
+# OS
+.DS_Store

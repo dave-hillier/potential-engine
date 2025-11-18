@@ -1,0 +1,16 @@
+{
+  "name": "depanalysis-reports",
+  "version": "1.0.0",
+  "description": "Interactive analysis reports for depanalysis",
+  "type": "module",
+  "scripts": {
+    "dev": "observable preview",
+    "build": "observable build",
+    "deploy": "observable deploy"
+  },
+  "author": "Dave Hillier",
+  "license": "ISC",
+  "dependencies": {
+    "@observablehq/framework": "^1.13.3"
+  }
+}

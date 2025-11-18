@@ -8,6 +8,26 @@ A multi-language dependency analysis tool that combines static structural analys
 
 **Language Support**: The tool uses a language-agnostic core architecture supporting Python, TypeScript, JavaScript, C#, Java, Rust, C++, and Go. The initial MVP focuses on Python parser implementation, but the schema and architecture support polyglot repositories from the ground up.
 
+## Current Implementation Status
+
+### ✅ Implemented (MVP)
+- **Git History Analyzer**: Full implementation extracting commits, authors, file changes
+- **Temporal Coupling**: Jaccard similarity calculation for files that change together
+- **Churn Metrics**: File-level change frequency and magnitude tracking
+- **Author Analytics**: Contribution patterns and code ownership statistics
+- **CLI Tool**: Complete command-line interface for analysis and reporting
+- **Multi-Repository Support**: Separate databases per repo with cross-repo comparison
+- **Observable Framework Reports**: Interactive web dashboards with visualizations
+- **Data Export**: CSV and JSON export capabilities
+
+### 🚧 Planned (Future)
+- **AST Parser**: Python structural analysis (modules, classes, functions, imports)
+- **Structural Metrics**: Afferent/efferent coupling, instability, complexity
+- **Combined Metrics**: Hotspots (structural + temporal analysis)
+- **Circular Dependency Detection**: Graph algorithms for cycle detection
+- **Additional Languages**: TypeScript, C#, Java parsers
+- **GraphML Export**: For external visualization tools
+
 ## Architecture
 
 ### Dual Database Design
@@ -153,14 +173,44 @@ Best effort tracking - capture what's statically analyzable, flag dynamic import
 
 ### Export Formats
 - **JSON**: Programmatic access for tools
-- **CSV**: Spreadsheet analysis
-- **GraphML**: External graph visualization tools
+- **CSV**: Spreadsheet analysis (via `--export-csv` flag)
+- **GraphML**: External graph visualization tools (future)
 - **SQLite**: Portable database files
 
 ### Visualization
 - **Python API**: Thin wrapper over SQLite, returns dicts/sets/lists or Pandas DataFrames
-- **Observable Notebooks**: Interactive web-based exploration via sql.js
-- **Jupyter/Marimo**: Integration via Python API
+- **Observable Framework** (implemented): Interactive web-based dashboards in `docs/`
+  - Development: `cd docs && npm run dev` → http://localhost:3000
+  - Build: `cd docs && npm run build` → static site in `dist/`
+  - Data loaders: Python scripts in `docs/data/` export JSON for Observable pages
+- **Jupyter/Marimo**: Integration via Python API (future)
+
+### Observable Framework Implementation
+
+**Commands**:
+```bash
+cd docs
+npm install          # First time setup
+npm run dev          # Development server
+npm run build        # Build static site
+npm run deploy       # Deploy to Observable
+```
+
+**Pages**:
+- `/` - Landing page with repository overview
+- `/repo/{name}` - Individual repository dashboards (high-churn, multi-author, simple-linear)
+- `/coupling` - Temporal coupling network visualization (D3 force-directed graph)
+- `/authors` - Author analytics and contribution patterns
+- `/compare` - Cross-repository comparison
+
+**Data Loaders** (`docs/data/*.py`):
+- `repo-list.json.py` - List all analyzed repositories
+- `all-repos-summary.json.py` - Summary stats for all repos
+- `churn.json.py <repo>` - File churn metrics
+- `coupling.json.py <repo>` - Temporal coupling data
+- `authors.json.py <repo>` - Author statistics
+
+Data loaders are Python scripts that query SQLite databases and output JSON, executed by Observable Framework during page rendering.
 
 ## Data Models
 
