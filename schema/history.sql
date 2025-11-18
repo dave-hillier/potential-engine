@@ -150,3 +150,45 @@ SELECT
         NULLIF((julianday(last_commit_date) - julianday(first_commit_date)) / 30.0, 0)
         AS commits_per_month
 FROM churn_metrics;
+
+-- =============================================================================
+-- TIER 3: CODE QUALITY TRENDS (Feature 9)
+-- =============================================================================
+
+-- Store historical snapshots of structural metrics per commit
+-- Enables tracking quality trends over time
+CREATE TABLE IF NOT EXISTS metrics_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    commit_hash TEXT NOT NULL,
+    commit_timestamp TIMESTAMP,
+    module_count INTEGER NOT NULL DEFAULT 0,
+    class_count INTEGER NOT NULL DEFAULT 0,
+    function_count INTEGER NOT NULL DEFAULT 0,
+    avg_complexity REAL NOT NULL DEFAULT 0.0,
+    avg_instability REAL NOT NULL DEFAULT 0.0,
+    import_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (commit_hash) REFERENCES commits(hash) ON DELETE CASCADE,
+    CONSTRAINT unique_snapshot UNIQUE (commit_hash)
+);
+
+CREATE INDEX idx_metrics_snapshots_commit ON metrics_snapshots(commit_hash);
+CREATE INDEX idx_metrics_snapshots_timestamp ON metrics_snapshots(commit_timestamp);
+
+-- View for comparing metrics between commits
+CREATE VIEW IF NOT EXISTS metrics_trends AS
+SELECT
+    ms1.commit_hash,
+    ms1.commit_timestamp,
+    ms1.module_count,
+    ms1.class_count,
+    ms1.function_count,
+    ms1.avg_complexity,
+    ms1.avg_instability,
+    ms1.import_count,
+    LAG(ms1.avg_complexity) OVER (ORDER BY ms1.commit_timestamp) AS prev_complexity,
+    LAG(ms1.avg_instability) OVER (ORDER BY ms1.commit_timestamp) AS prev_instability,
+    ms1.avg_complexity - LAG(ms1.avg_complexity) OVER (ORDER BY ms1.commit_timestamp) AS complexity_delta,
+    ms1.avg_instability - LAG(ms1.avg_instability) OVER (ORDER BY ms1.commit_timestamp) AS instability_delta
+FROM metrics_snapshots ms1
+ORDER BY ms1.commit_timestamp;
