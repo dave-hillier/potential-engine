@@ -6,7 +6,6 @@ export default {
   title: "depanalysis Reports",
   pages: [
     {name: "Overview", path: "/"},
-    {name: "Repositories", path: "/repo", open: false},
     {name: "Temporal Coupling", path: "/coupling"},
     {name: "Author Analytics", path: "/authors"},
     {name: "Compare Repositories", path: "/compare"}
