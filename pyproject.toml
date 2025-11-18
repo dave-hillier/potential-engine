@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "depanalysis"
+version = "0.1.0"
+description = "Python dependency analysis tool combining static structural analysis with temporal behavioral analysis"
+requires-python = ">=3.9"
+authors = [
+    { name = "Dave Hillier" }
+]
+dependencies = [
+    "gitpython>=3.1.0",
+    "pandas>=2.0.0",
+    "click>=8.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["depanalysis*"]
+exclude = ["data*", "schema*", "examples*", "venv*"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+depanalysis = "depanalysis.cli:main"
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
