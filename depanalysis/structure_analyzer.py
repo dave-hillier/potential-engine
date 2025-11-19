@@ -52,6 +52,11 @@ class StructureAnalyzer:
             "classes_found": 0,
             "functions_found": 0,
             "imports_found": 0,
+            "calls_found": 0,
+            "inheritance_found": 0,
+            "decorators_found": 0,
+            "type_hints_found": 0,
+            "variables_found": 0,
             "errors": 0
         }
 
@@ -59,7 +64,7 @@ class StructureAnalyzer:
         for file_path in self.repo_path.rglob("*.py"):
             if ".git" in file_path.parts or "__pycache__" in file_path.parts:
                 continue
-                
+
             try:
                 self._analyze_file(file_path, stats)
                 stats["files_parsed"] += 1
@@ -140,9 +145,9 @@ class StructureAnalyzer:
 
         # Handle Classes
         elif isinstance(node, ast.ClassDef):
-            new_class_id = self._insert_class(module_id, node)
+            new_class_id = self._insert_class(module_id, node, stats)
             stats["classes_found"] += 1
-            
+
             # Visit children with new class context
             for child in ast.iter_fields(node):
                 child_val = child[1]
@@ -159,7 +164,11 @@ class StructureAnalyzer:
             is_async = isinstance(node, ast.AsyncFunctionDef)
             new_func_id = self._insert_function(module_id, class_id, node, is_async)
             stats["functions_found"] += 1
-            
+            stats["decorators_found"] += len(node.decorator_list)
+            stats["type_hints_found"] += len([arg for arg in node.args.args if arg.annotation])
+            if node.returns:
+                stats["type_hints_found"] += 1
+
             # Visit children with new function context
             for child in ast.iter_fields(node):
                 child_val = child[1]
@@ -170,6 +179,67 @@ class StructureAnalyzer:
                 elif isinstance(child_val, ast.AST):
                     self._visit_node(child_val, module_id, class_id, new_func_id, stats)
             return # Don't continue generic traversal for this node
+
+        # Handle function calls
+        elif isinstance(node, ast.Call) and function_id is not None:
+            call_name = self._extract_name_from_node(node.func)
+            if call_name:
+                call_kind = 'async_call' if isinstance(node.func, ast.Attribute) and \
+                                            hasattr(node.func, 'attr') and \
+                                            node.func.attr in ('await', 'async') else 'call'
+                self.cursor.execute(
+                    """
+                    INSERT INTO calls
+                    (from_function_id, to_name, call_kind, line_number)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (function_id, call_name, call_kind, node.lineno)
+                )
+                stats["calls_found"] += 1
+
+        # Handle class-level variable assignments (fields)
+        elif isinstance(node, ast.AnnAssign) and class_id is not None and function_id is None:
+            if isinstance(node.target, ast.Name):
+                var_name = node.target.id
+                type_str = self._extract_type_annotation(node.annotation) if node.annotation else None
+
+                self.cursor.execute(
+                    """
+                    INSERT INTO variables
+                    (module_id, class_id, name, kind, line_number)
+                    VALUES (?, ?, ?, 'field', ?)
+                    """,
+                    (module_id, class_id, var_name, node.lineno)
+                )
+                var_id = self.cursor.lastrowid
+                stats["variables_found"] += 1
+
+                # Add type hint if present
+                if type_str:
+                    self.cursor.execute(
+                        """
+                        INSERT INTO type_hints
+                        (variable_id, hint_type, type_annotation)
+                        VALUES (?, 'variable', ?)
+                        """,
+                        (var_id, type_str)
+                    )
+                    stats["type_hints_found"] += 1
+
+        # Handle regular assignments for class fields (e.g., x = 5 in class body)
+        elif isinstance(node, ast.Assign) and class_id is not None and function_id is None:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    var_name = target.id
+                    self.cursor.execute(
+                        """
+                        INSERT INTO variables
+                        (module_id, class_id, name, kind, line_number)
+                        VALUES (?, ?, ?, 'field', ?)
+                        """,
+                        (module_id, class_id, var_name, node.lineno)
+                    )
+                    stats["variables_found"] += 1
 
         # Continue traversal for other nodes
         for child in ast.iter_child_nodes(node):
@@ -189,35 +259,51 @@ class StructureAnalyzer:
             (module_id, to_module, import_name, alias, kind, is_relative, lineno)
         )
 
-    def _insert_class(self, module_id: int, node: ast.ClassDef) -> int:
+    def _insert_class(self, module_id: int, node: ast.ClassDef, stats: dict) -> int:
         """Insert class record and return its ID."""
         # Determine line range
         line_start = node.lineno
         line_end = getattr(node, 'end_lineno', line_start)
-        
+
         docstring = ast.get_docstring(node)
-        
+
         self.cursor.execute(
             """
-            INSERT INTO classes 
+            INSERT INTO classes
             (module_id, name, kind, line_start, line_end, docstring)
             VALUES (?, ?, 'class', ?, ?, ?)
             """,
             (module_id, node.name, line_start, line_end, docstring)
         )
-        return self.cursor.lastrowid
+        class_id = self.cursor.lastrowid
 
-    def _insert_function(self, module_id: int, class_id: Optional[int], 
+        # Extract inheritance relationships
+        for position, base in enumerate(node.bases):
+            base_name = self._extract_name_from_node(base)
+            if base_name:
+                self.cursor.execute(
+                    """
+                    INSERT INTO inheritance
+                    (class_id, base_class_name, relationship_kind, position)
+                    VALUES (?, ?, 'inherits', ?)
+                    """,
+                    (class_id, base_name, position)
+                )
+                stats["inheritance_found"] += 1
+
+        return class_id
+
+    def _insert_function(self, module_id: int, class_id: Optional[int],
                         node: ast.FunctionDef, is_async: bool) -> int:
         """Insert function record and return its ID."""
         line_start = node.lineno
         line_end = getattr(node, 'end_lineno', line_start)
         docstring = ast.get_docstring(node)
-        
+
         # Calculate simple cyclomatic complexity (branches + 1)
         complexity = 1
         for child in ast.walk(node):
-            if isinstance(child, (ast.If, ast.While, ast.For, ast.ExceptHandler, 
+            if isinstance(child, (ast.If, ast.While, ast.For, ast.ExceptHandler,
                                  ast.With, ast.Assert, ast.comprehension)):
                 complexity += 1
             elif isinstance(child, ast.BoolOp):
@@ -226,15 +312,117 @@ class StructureAnalyzer:
         kind = 'method' if class_id else 'function'
         if node.name == '__init__':
             kind = 'constructor'
-            
+
         self.cursor.execute(
             """
-            INSERT INTO functions 
-            (module_id, class_id, name, kind, line_start, line_end, 
+            INSERT INTO functions
+            (module_id, class_id, name, kind, line_start, line_end,
              docstring, cyclomatic_complexity, is_async)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (module_id, class_id, node.name, kind, line_start, line_end, 
+            (module_id, class_id, node.name, kind, line_start, line_end,
              docstring, complexity, is_async)
         )
-        return self.cursor.lastrowid
+        function_id = self.cursor.lastrowid
+
+        # Extract decorators
+        for decorator in node.decorator_list:
+            decorator_name = self._extract_name_from_node(decorator)
+            if decorator_name:
+                # Get arguments if present (for decorators like @app.route('/path'))
+                args_str = None
+                if isinstance(decorator, ast.Call):
+                    args_str = ast.unparse(decorator) if hasattr(ast, 'unparse') else str(decorator)
+
+                self.cursor.execute(
+                    """
+                    INSERT INTO decorators
+                    (target_type, target_id, decorator_name, arguments, line_number)
+                    VALUES ('function', ?, ?, ?, ?)
+                    """,
+                    (function_id, decorator_name, args_str, line_start)
+                )
+
+        # Extract type hints for parameters and return type
+        for arg in node.args.args:
+            if arg.annotation:
+                type_str = self._extract_type_annotation(arg.annotation)
+                if type_str:
+                    self.cursor.execute(
+                        """
+                        INSERT INTO type_hints
+                        (function_id, hint_type, parameter_name, type_annotation)
+                        VALUES (?, 'parameter', ?, ?)
+                        """,
+                        (function_id, arg.arg, type_str)
+                    )
+
+        # Extract return type hint
+        if node.returns:
+            type_str = self._extract_type_annotation(node.returns)
+            if type_str:
+                self.cursor.execute(
+                    """
+                    INSERT INTO type_hints
+                    (function_id, hint_type, type_annotation)
+                    VALUES (?, 'return', ?)
+                    """,
+                    (function_id, type_str)
+                )
+
+        return function_id
+
+    def _extract_name_from_node(self, node: ast.AST) -> Optional[str]:
+        """Extract a name string from an AST node (Name, Attribute, Call, etc.)."""
+        if isinstance(node, ast.Name):
+            return node.id
+        elif isinstance(node, ast.Attribute):
+            # For things like "os.path.join", recursively build the full name
+            value_name = self._extract_name_from_node(node.value)
+            if value_name:
+                return f"{value_name}.{node.attr}"
+            return node.attr
+        elif isinstance(node, ast.Call):
+            # For decorator calls like @decorator(), extract the function being called
+            return self._extract_name_from_node(node.func)
+        elif isinstance(node, ast.Subscript):
+            # For things like List[str], Dict[str, int]
+            return self._extract_name_from_node(node.value)
+        return None
+
+    def _extract_type_annotation(self, node: ast.AST) -> Optional[str]:
+        """Extract type annotation as a string from an AST node."""
+        try:
+            # Python 3.9+ has ast.unparse
+            if hasattr(ast, 'unparse'):
+                return ast.unparse(node)
+            # Fallback for older Python versions
+            elif isinstance(node, ast.Name):
+                return node.id
+            elif isinstance(node, ast.Attribute):
+                value_name = self._extract_type_annotation(node.value)
+                if value_name:
+                    return f"{value_name}.{node.attr}"
+                return node.attr
+            elif isinstance(node, ast.Subscript):
+                # Handle generics like List[str]
+                base = self._extract_type_annotation(node.value)
+                # Note: ast.Index was removed in Python 3.9
+                if hasattr(node.slice, 'value'):
+                    slice_val = self._extract_type_annotation(node.slice.value)
+                else:
+                    slice_val = self._extract_type_annotation(node.slice)
+                if base and slice_val:
+                    return f"{base}[{slice_val}]"
+                return base
+            elif isinstance(node, ast.Tuple):
+                # Handle Tuple types
+                elements = [self._extract_type_annotation(elt) for elt in node.elts]
+                return ", ".join(e for e in elements if e)
+            elif isinstance(node, ast.Constant):
+                # For string literals in type hints
+                return str(node.value)
+            else:
+                return str(type(node).__name__)
+        except Exception:
+            return None

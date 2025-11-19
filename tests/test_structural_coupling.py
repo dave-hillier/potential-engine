@@ -1096,3 +1096,332 @@ def helper():
         assert stats["functions_found"] == 0
         assert stats["imports_found"] == 0
         assert stats["errors"] == 0
+
+    def test_decorator_extraction(self, temp_dir, structure_db):
+        """Test that decorators are extracted from functions and classes."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "decorators.py").write_text("""
+@staticmethod
+def static_func():
+    pass
+
+class MyClass:
+    @property
+    def my_property(self):
+        return self._value
+
+    @classmethod
+    def class_method(cls):
+        return cls.__name__
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["decorators_found"] == 3, "Should find 3 decorators"
+
+        cursor = structure_db.cursor()
+        decorators = cursor.execute("""
+            SELECT decorator_name, target_type
+            FROM decorators
+            ORDER BY line_number
+        """).fetchall()
+
+        assert len(decorators) == 3
+        assert decorators[0][0] == "staticmethod"
+        assert decorators[0][1] == "function"
+        assert decorators[1][0] == "property"
+        assert decorators[1][1] == "function"
+        assert decorators[2][0] == "classmethod"
+        assert decorators[2][1] == "function"
+
+    def test_type_hints_extraction(self, temp_dir, structure_db):
+        """Test that type hints are extracted from function parameters and returns."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "typehints.py").write_text("""
+def add(x: int, y: int) -> int:
+    return x + y
+
+def greet(name: str) -> str:
+    return f"Hello, {name}"
+
+class Person:
+    age: int
+    name: str
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["type_hints_found"] >= 5, "Should find at least 5 type hints"
+
+        cursor = structure_db.cursor()
+
+        # Check parameter type hints
+        param_hints = cursor.execute("""
+            SELECT parameter_name, type_annotation, hint_type
+            FROM type_hints
+            WHERE hint_type = 'parameter'
+            ORDER BY parameter_name
+        """).fetchall()
+
+        assert len(param_hints) >= 3, "Should have at least 3 parameter hints"
+
+        # Check return type hints
+        return_hints = cursor.execute("""
+            SELECT type_annotation, hint_type
+            FROM type_hints
+            WHERE hint_type = 'return'
+        """).fetchall()
+
+        assert len(return_hints) == 2, "Should have 2 return type hints"
+
+    def test_inheritance_extraction_from_code(self, temp_dir, structure_db):
+        """Test that inheritance relationships are extracted from actual code."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "inheritance.py").write_text("""
+class Animal:
+    pass
+
+class Dog(Animal):
+    pass
+
+class GuideDog(Dog):
+    pass
+
+class Flyable:
+    pass
+
+class Bird(Animal, Flyable):
+    '''Multiple inheritance'''
+    pass
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["inheritance_found"] >= 4, "Should find at least 4 inheritance relationships"
+
+        cursor = structure_db.cursor()
+        inheritance = cursor.execute("""
+            SELECT c.name, i.base_class_name, i.position
+            FROM classes c
+            JOIN inheritance i ON c.id = i.class_id
+            ORDER BY c.name, i.position
+        """).fetchall()
+
+        assert len(inheritance) >= 4
+
+        # Check Dog inherits from Animal
+        dog_inheritance = [i for i in inheritance if i[0] == "Dog"]
+        assert len(dog_inheritance) == 1
+        assert dog_inheritance[0][1] == "Animal"
+
+        # Check GuideDog inherits from Dog
+        guide_dog_inheritance = [i for i in inheritance if i[0] == "GuideDog"]
+        assert len(guide_dog_inheritance) == 1
+        assert guide_dog_inheritance[0][1] == "Dog"
+
+        # Check Bird has multiple inheritance
+        bird_inheritance = [i for i in inheritance if i[0] == "Bird"]
+        assert len(bird_inheritance) == 2, "Bird should have 2 base classes"
+        base_names = [i[1] for i in bird_inheritance]
+        assert "Animal" in base_names
+        assert "Flyable" in base_names
+
+    def test_function_calls_extraction(self, temp_dir, structure_db):
+        """Test that function calls are extracted from code."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "calls.py").write_text("""
+def helper():
+    return 42
+
+def caller():
+    x = helper()
+    print(x)
+    return x * 2
+
+class Calculator:
+    def add(self, x, y):
+        return x + y
+
+    def compute(self, x, y):
+        result = self.add(x, y)
+        print(result)
+        return result
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["calls_found"] >= 4, "Should find at least 4 function calls"
+
+        cursor = structure_db.cursor()
+        calls = cursor.execute("""
+            SELECT to_name, call_kind
+            FROM calls
+            ORDER BY line_number
+        """).fetchall()
+
+        assert len(calls) >= 4
+
+        # Check that helper() and print() calls are tracked
+        call_names = [c[0] for c in calls]
+        assert "helper" in call_names
+        assert "print" in call_names
+
+    def test_class_variables_extraction(self, temp_dir, structure_db):
+        """Test that class variables and fields are extracted."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "variables.py").write_text("""
+class Config:
+    DEBUG = True
+    MAX_CONNECTIONS = 100
+    name: str
+    timeout: int = 30
+
+class Person:
+    def __init__(self):
+        self.age = 0  # This is not a class variable
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["variables_found"] >= 4, "Should find at least 4 class variables"
+
+        cursor = structure_db.cursor()
+        variables = cursor.execute("""
+            SELECT v.name, v.kind, c.name as class_name
+            FROM variables v
+            JOIN classes c ON v.class_id = c.id
+            WHERE v.function_id IS NULL
+            ORDER BY v.line_number
+        """).fetchall()
+
+        assert len(variables) >= 4
+
+        # Check that class-level variables are captured
+        var_names = [v[0] for v in variables]
+        assert "DEBUG" in var_names
+        assert "MAX_CONNECTIONS" in var_names
+        assert "name" in var_names
+        assert "timeout" in var_names
+
+    def test_complex_decorators_with_arguments(self, temp_dir, structure_db):
+        """Test extraction of decorators with arguments."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "complex_decorators.py").write_text("""
+class WebApp:
+    @route('/users/<id>')
+    def get_user(self, id):
+        pass
+
+    @cache(timeout=300)
+    @validate_auth
+    def protected_endpoint(self):
+        pass
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        assert stats["decorators_found"] == 3, "Should find 3 decorators"
+
+        cursor = structure_db.cursor()
+        decorators = cursor.execute("""
+            SELECT decorator_name
+            FROM decorators
+            ORDER BY line_number
+        """).fetchall()
+
+        assert len(decorators) == 3
+        decorator_names = [d[0] for d in decorators]
+        assert "route" in decorator_names
+        assert "cache" in decorator_names
+        assert "validate_auth" in decorator_names
+
+    def test_full_feature_integration(self, temp_dir, structure_db):
+        """Test all new features together in a realistic code sample."""
+        repo_path = temp_dir / "sample_repo"
+        repo_path.mkdir()
+
+        (repo_path / "full_example.py").write_text("""
+from typing import List, Optional
+
+class Animal:
+    species: str = "Unknown"
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def speak(self) -> str:
+        return "..."
+
+class Dog(Animal):
+    breed: str
+
+    def __init__(self, name: str, breed: str):
+        super().__init__(name)
+        self.breed = breed
+
+    def speak(self) -> str:
+        return "Woof!"
+
+    @property
+    def description(self) -> str:
+        return f"{self.name} is a {self.breed}"
+
+def create_dog(name: str, breed: str) -> Dog:
+    dog = Dog(name, breed)
+    print(dog.description)
+    return dog
+""")
+
+        analyzer = StructureAnalyzer(repo_path, structure_db)
+        stats = analyzer.analyze()
+
+        # Verify all features were captured
+        assert stats["files_parsed"] == 1
+        assert stats["classes_found"] == 2
+        assert stats["functions_found"] >= 5  # __init__ x2, speak x2, description, create_dog
+        assert stats["inheritance_found"] == 1  # Dog inherits Animal
+        assert stats["decorators_found"] >= 1  # @property
+        assert stats["type_hints_found"] >= 6  # Multiple parameters and returns
+        assert stats["variables_found"] >= 2  # species, breed
+        assert stats["calls_found"] >= 3  # super().__init__(), Dog(), print()
+
+        cursor = structure_db.cursor()
+
+        # Verify inheritance
+        inheritance = cursor.execute("""
+            SELECT base_class_name FROM inheritance
+        """).fetchall()
+        assert len(inheritance) == 1
+        assert inheritance[0][0] == "Animal"
+
+        # Verify decorators
+        decorators = cursor.execute("""
+            SELECT decorator_name FROM decorators
+        """).fetchall()
+        assert len(decorators) >= 1
+        assert any(d[0] == "property" for d in decorators)
+
+        # Verify calls include super().__init__
+        calls = cursor.execute("""
+            SELECT to_name FROM calls
+        """).fetchall()
+        call_names = [c[0] for c in calls]
+        assert "Dog" in call_names or "super.__init__" in call_names or "print" in call_names
