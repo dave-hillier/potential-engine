@@ -4,17 +4,19 @@ NDepend-style metrics for analyzing module stability and coupling.
 
 ```js
 const repos = FileAttachment("../data/repo-list.json").json();
-const metrics = FileAttachment("../data/instability-metrics.json").json();
 ```
 
 ```js
-// Get the first repository name
-const currentRepo = (await repos)[0];
+const allMetrics = FileAttachment("../data/all-instability-metrics.json").json();
 ```
 
-<div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">
-  <strong>Repository:</strong> ${currentRepo} (showing first repository only)
-</div>
+```js
+const selectedRepo = view(Inputs.select(repos, {label: "Repository", value: repos[0]}));
+```
+
+```js
+const metrics = allMetrics[selectedRepo] || {};
+```
 
 ## Overview
 

@@ -7,17 +7,16 @@ const repos = FileAttachment("../data/repo-list.json").json();
 ```
 
 ```js
-// Get the first repository name
-const currentRepo = (await repos)[0];
+const allData = FileAttachment("../data/all-decorator-usage.json").json();
 ```
 
 ```js
-const data = FileAttachment("../data/decorator-usage.json").json();
+const selectedRepo = view(Inputs.select(repos, {label: "Repository", value: repos[0]}));
 ```
 
-<div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">
-  <strong>Repository:</strong> ${currentRepo}
-</div>
+```js
+const data = allData[selectedRepo] || {};
+```
 
 ## Overview
 
