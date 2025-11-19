@@ -1,11 +1,13 @@
 """
-Cross-language dependency analyzer.
+API Boundary Parser.
 
-Detects dependencies and relationships across different programming languages:
-- API boundaries (REST endpoints, GraphQL, gRPC)
-- Shared type definitions (Protocol Buffers, JSON schemas)
-- Monorepo package dependencies
-- Microservice coupling patterns
+PARSE PHASE component that extracts API boundaries from source code:
+- API endpoints (REST, GraphQL, gRPC) from Python (Flask/FastAPI/Django)
+- API calls (fetch, axios) from TypeScript/JavaScript
+- Shared type definitions (Protocol Buffers, GraphQL, OpenAPI)
+
+This is a PARSER, not an analyzer - it writes to structure.db during parse phase.
+For analysis/queries, use MetricsAnalyzer.
 """
 import json
 import re
@@ -14,15 +16,16 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 
 
-class CrossLanguageAnalyzer:
+class APIBoundaryParser:
     """
-    Analyzes cross-language dependencies and API boundaries.
+    Parses API boundaries from source code and API definition files.
 
-    Detects patterns like:
-    - Python Flask/FastAPI routes called by TypeScript fetch()
-    - Protocol Buffer definitions shared across languages
-    - GraphQL schemas used by multiple services
-    - Configuration files referencing different language modules
+    PARSE PHASE: Extracts and writes to structure.db:
+    - Python Flask/FastAPI routes → api_endpoints table
+    - TypeScript/JavaScript fetch/axios calls → api_calls table
+    - Protocol Buffer/GraphQL/OpenAPI definitions → shared_types table
+
+    For ANALYSIS/QUERIES: Use MetricsAnalyzer.get_api_boundary_matches()
     """
 
     def __init__(self, repo_path: Path, structure_db: sqlite3.Connection,
@@ -106,12 +109,14 @@ class CrossLanguageAnalyzer:
 
         self.structure_db.commit()
 
-    def analyze(self) -> Dict[str, int]:
+    def parse(self) -> Dict[str, int]:
         """
-        Perform cross-language dependency analysis.
+        Parse API boundaries from source files and write to structure.db.
+
+        PARSE PHASE method - extracts data and persists to database.
 
         Returns:
-            Dictionary with analysis statistics
+            Dictionary with parsing statistics
         """
         stats = {
             "api_endpoints_found": 0,
@@ -144,6 +149,15 @@ class CrossLanguageAnalyzer:
 
         self.structure_db.commit()
         return stats
+
+    def analyze(self) -> Dict[str, int]:
+        """
+        DEPRECATED: Use parse() instead.
+
+        This method is kept for backward compatibility but will be removed.
+        analyze() implies querying/analysis, but this class does parsing.
+        """
+        return self.parse()
 
     def _analyze_python_apis(self) -> int:
         """Analyze Python Flask/FastAPI/Django route definitions."""
@@ -424,3 +438,7 @@ class CrossLanguageAnalyzer:
             }
             for row in results
         ]
+
+
+# Backward compatibility alias - DEPRECATED
+CrossLanguageAnalyzer = APIBoundaryParser

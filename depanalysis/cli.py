@@ -96,9 +96,13 @@ def analyze_repo(repository: Path):
     try:
         # Initialize database
         structure_db, history_db = db_manager.initialize_repo_databases(repo_name)
-        
-        # 1. Analyze Git History
-        click.echo("Analyzing Git history...")
+
+        # =====================================================================
+        # PARSE PHASE: Extract data from Git and source files → Write to DBs
+        # =====================================================================
+
+        # 1. Parse Git History → history.db
+        click.echo("Parsing Git history...")
         conn_hist = db_manager.get_connection(repo_name, "history")
         git_analyzer = GitAnalyzer(repository, conn_hist)
         stats_hist = git_analyzer.analyze()
@@ -109,9 +113,15 @@ def analyze_repo(repository: Path):
         click.echo(f"  ✓ Tracked {stats_hist['files_tracked']} files")
         click.echo(f"  ✓ Calculated {stats_hist['temporal_couplings']} temporal couplings")
 
-        # 2. Analyze Structure (Python) - Using tree-sitter
-        click.echo("\nAnalyzing Python Code Structure (tree-sitter)...")
+        # 2. Parse Source Code Structure → structure.db
+        click.echo("\n" + "="*70)
+        click.echo("PARSE PHASE: Extracting structure from source files...")
+        click.echo("="*70)
+
         conn_struct = db_manager.get_connection(repo_name, "structure")
+
+        # 2a. Python Parser (tree-sitter)
+        click.echo("\nParsing Python Code (tree-sitter)...")
         python_parser = TreeSitterPythonParser(repository, conn_struct)
         stats_python = python_parser.analyze()
 
@@ -125,8 +135,8 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No Python files found")
 
-        # 3. Analyze TypeScript/JavaScript - Using tree-sitter
-        click.echo("\nAnalyzing TypeScript Code Structure (tree-sitter)...")
+        # 2b. TypeScript Parser (tree-sitter)
+        click.echo("\nParsing TypeScript Code (tree-sitter)...")
         ts_parser = TreeSitterTypeScriptParser(repository, conn_struct)
         stats_ts = ts_parser.analyze()
 
@@ -140,7 +150,8 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No TypeScript files found")
 
-        click.echo("\nAnalyzing JavaScript Code Structure (tree-sitter)...")
+        # 2c. JavaScript Parser (tree-sitter)
+        click.echo("\nParsing JavaScript Code (tree-sitter)...")
         js_parser = TreeSitterJavaScriptParser(repository, conn_struct)
         stats_js = js_parser.analyze()
 
@@ -154,8 +165,8 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No JavaScript files found")
 
-        # 3a. Analyze C# Code Structure - Using tree-sitter
-        click.echo("\nAnalyzing C# Code Structure (tree-sitter)...")
+        # 2d. C# Parser (tree-sitter)
+        click.echo("\nParsing C# Code (tree-sitter)...")
         cs_parser = TreeSitterCSharpParser(repository, conn_struct)
         stats_cs = cs_parser.analyze()
 
@@ -170,8 +181,8 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No C# files found")
 
-        # 3b. Analyze Java Code Structure - Using tree-sitter
-        click.echo("\nAnalyzing Java Code Structure (tree-sitter)...")
+        # 2e. Java Parser (tree-sitter)
+        click.echo("\nParsing Java Code (tree-sitter)...")
         java_parser = TreeSitterJavaParser(repository, conn_struct)
         stats_java = java_parser.analyze()
 
@@ -185,8 +196,8 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No Java files found")
 
-        # 3c. Analyze Rust Code Structure - Using tree-sitter
-        click.echo("\nAnalyzing Rust Code Structure (tree-sitter)...")
+        # 2f. Rust Parser (tree-sitter)
+        click.echo("\nParsing Rust Code (tree-sitter)...")
         rust_parser = TreeSitterRustParser(repository, conn_struct)
         stats_rust = rust_parser.analyze()
 
@@ -200,8 +211,8 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No Rust files found")
 
-        # 3d. Analyze C++ Code Structure - Using tree-sitter
-        click.echo("\nAnalyzing C++ Code Structure (tree-sitter)...")
+        # 2g. C++ Parser (tree-sitter)
+        click.echo("\nParsing C++ Code (tree-sitter)...")
         cpp_parser = TreeSitterCppParser(repository, conn_struct)
         stats_cpp = cpp_parser.analyze()
 
@@ -215,8 +226,8 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No C++ files found")
 
-        # 3e. Analyze Go Code Structure - Using tree-sitter
-        click.echo("\nAnalyzing Go Code Structure (tree-sitter)...")
+        # 2h. Go Parser (tree-sitter)
+        click.echo("\nParsing Go Code (tree-sitter)...")
         go_parser = TreeSitterGoParser(repository, conn_struct)
         stats_go = go_parser.analyze()
 
@@ -230,10 +241,10 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No Go files found")
 
-        # 4. Analyze Cross-Language Dependencies (Tier 2 Feature 5)
-        click.echo("\nAnalyzing Cross-Language Dependencies...")
-        cross_lang_analyzer = CrossLanguageAnalyzer(repository, conn_struct, conn_hist)
-        stats_cross = cross_lang_analyzer.analyze()
+        # 2i. API Boundary Parser (REST, GraphQL, Protocol Buffers)
+        click.echo("\nParsing API Boundaries (endpoints, calls, shared types)...")
+        cross_lang_analyzer = CrossLanguageAnalyzer(repository, conn_struct, None)
+        stats_cross = cross_lang_analyzer.parse()
 
         if stats_cross['api_endpoints_found'] > 0 or stats_cross['api_calls_found'] > 0:
             click.echo(f"  ✓ Found {stats_cross['api_endpoints_found']} API endpoints")
@@ -245,10 +256,10 @@ def analyze_repo(repository: Path):
         else:
             click.echo("  - No cross-language dependencies detected")
 
-        # 5. Analyze Language Ecosystem Dependencies (Tier 2 Feature 6)
-        click.echo("\nAnalyzing Language Ecosystem Dependencies...")
+        # 2j. Manifest Parser (package.json, requirements.txt, Cargo.toml, etc.)
+        click.echo("\nParsing Package Manifest Files...")
         ecosystem_analyzer = EcosystemAnalyzer(repository, conn_struct)
-        stats_ecosystem = ecosystem_analyzer.analyze()
+        stats_ecosystem = ecosystem_analyzer.parse()
 
         if stats_ecosystem['dependencies_found'] > 0:
             click.echo(f"  ✓ Analyzed {stats_ecosystem['manifest_files']} package manifest files")
@@ -272,9 +283,15 @@ def analyze_repo(repository: Path):
 
         conn_struct.close()
 
-        click.echo(f"\nData stored in:")
+        click.echo("\n" + "="*70)
+        click.echo("PARSE PHASE COMPLETE")
+        click.echo("="*70)
+        click.echo(f"\nAll data persisted to databases:")
         click.echo(f"  - {history_db}")
         click.echo(f"  - {structure_db}")
+        click.echo("\nNext steps:")
+        click.echo("  - Query metrics: depanalysis show-metrics <repo>")
+        click.echo("  - View visualizations: cd docs && npm run dev")
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
