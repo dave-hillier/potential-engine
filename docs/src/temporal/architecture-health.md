@@ -3,14 +3,14 @@
 Comprehensive analysis combining structural and temporal metrics to identify maintenance bottlenecks and architectural issues.
 
 ```js
-const repos = FileAttachment("data/repo-list.json").json();
+const repos = FileAttachment("../data/repo-list.json").json();
 const currentRepo = repos[0];
 ```
 
 ```js
-const hotspots = FileAttachment("data/hotspots.json").json();
-const cycles = FileAttachment("data/circular-dependencies.json").json();
-const hiddenDeps = FileAttachment("data/hidden-dependencies.json").json();
+const hotspots = FileAttachment("../data/hotspots.json").json();
+const cycles = FileAttachment("../data/circular-dependencies.json").json();
+const hiddenDeps = FileAttachment("../data/hidden-dependencies.json").json();
 ```
 
 <div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">

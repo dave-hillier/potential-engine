@@ -3,12 +3,12 @@
 Analyze REST API endpoints, calls, and service boundaries across languages.
 
 ```js
-const repos = FileAttachment("data/repo-list.json").json();
+const repos = FileAttachment("../data/repo-list.json").json();
 const currentRepo = repos[0];
 ```
 
 ```js
-const apiData = FileAttachment("data/api-boundaries.json").json();
+const apiData = FileAttachment("../data/api-boundaries.json").json();
 ```
 
 <div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">

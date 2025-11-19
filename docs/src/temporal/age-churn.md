@@ -3,12 +3,12 @@
 Track file age, change frequency, and identify legacy hotspots.
 
 ```js
-const repos = FileAttachment("data/repo-list.json").json();
+const repos = FileAttachment("../data/repo-list.json").json();
 const currentRepo = repos[0];
 ```
 
 ```js
-const data = FileAttachment("data/code-age-metrics.json").json();
+const data = FileAttachment("../data/code-age-metrics.json").json();
 ```
 
 <div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">

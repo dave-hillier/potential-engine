@@ -3,7 +3,7 @@
 Side-by-side comparison of metrics across multiple repositories.
 
 ```js
-const summaries = FileAttachment("data/all-repos-summary.json").json();
+const summaries = FileAttachment("../data/all-repos-summary.json").json();
 ```
 
 ## Repository Overview Comparison

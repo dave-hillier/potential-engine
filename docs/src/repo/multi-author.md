@@ -1,9 +1,9 @@
 # Repository: multi-author
 
 ```js
-const churn = FileAttachment("data/multi-author-churn.json").json();
-const coupling = FileAttachment("data/multi-author-coupling.json").json();
-const authors = FileAttachment("data/multi-author-authors.json").json();
+const churn = FileAttachment("../data/multi-author-churn.json").json();
+const coupling = FileAttachment("../data/multi-author-coupling.json").json();
+const authors = FileAttachment("../data/multi-author-authors.json").json();
 ```
 
 ```js

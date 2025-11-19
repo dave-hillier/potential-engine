@@ -1,9 +1,9 @@
 # Repository: simple-linear
 
 ```js
-const churn = FileAttachment("data/simple-linear-churn.json").json();
-const coupling = FileAttachment("data/simple-linear-coupling.json").json();
-const authors = FileAttachment("data/simple-linear-authors.json").json();
+const churn = FileAttachment("../data/simple-linear-churn.json").json();
+const coupling = FileAttachment("../data/simple-linear-coupling.json").json();
+const authors = FileAttachment("../data/simple-linear-authors.json").json();
 ```
 
 ```js

@@ -3,13 +3,13 @@
 NDepend-style metrics for analyzing module stability and coupling.
 
 ```js
-const repos = FileAttachment("data/repo-list.json").json();
+const repos = FileAttachment("../data/repo-list.json").json();
 // Note: Data shown is for the first repository. Dynamic selection not yet implemented.
 const currentRepo = repos[0];
 ```
 
 ```js
-const metrics = FileAttachment("data/instability-metrics.json").json();
+const metrics = FileAttachment("../data/instability-metrics.json").json();
 ```
 
 <div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">

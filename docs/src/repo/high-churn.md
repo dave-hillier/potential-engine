@@ -1,9 +1,9 @@
 # Repository: high-churn
 
 ```js
-const churn = FileAttachment("data/high-churn-churn.json").json();
-const coupling = FileAttachment("data/high-churn-coupling.json").json();
-const authors = FileAttachment("data/high-churn-authors.json").json();
+const churn = FileAttachment("../data/high-churn-churn.json").json();
+const coupling = FileAttachment("../data/high-churn-coupling.json").json();
+const authors = FileAttachment("../data/high-churn-authors.json").json();
 ```
 
 ```js
