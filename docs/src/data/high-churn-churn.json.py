@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Data loader: Churn metrics for a specific repository.
-
-Usage: python churn.json.py <repo_name>
-"""
+"""Data loader: Churn metrics for high-churn repository."""
 
 import sys
 import json
@@ -14,11 +11,7 @@ from depanalysis.db_manager import DatabaseManager
 from depanalysis.metrics import MetricsAnalyzer
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python churn.json.py <repo_name>", file=sys.stderr)
-        sys.exit(1)
-
-    repo_name = sys.argv[1]
+    repo_name = "high-churn"
     # Point to data directory in repo root (not docs/)
     data_dir = Path(__file__).parent.parent.parent.parent / "data"
     db_manager = DatabaseManager(data_dir=data_dir)

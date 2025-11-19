@@ -3,15 +3,17 @@
 Type hint coverage and generic parameter usage across the codebase.
 
 ```js
-const repos = FileAttachment("../data/repo-list.json").json();
-const selectedRepo = view(Inputs.select(repos, {label: "Repository", value: repos[0]}));
+const repos = FileAttachment("data/repo-list.json").json();
+const currentRepo = repos[0];
 ```
 
 ```js
-const data = FileAttachment("../data/type-safety-metrics.json.py", {cache: false}).json({
-  command: ["../../../../venv/bin/python3", "../data/type-safety-metrics.json.py", selectedRepo]
-});
+const data = FileAttachment("data/type-safety-metrics.json").json();
 ```
+
+<div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">
+  <strong>Repository:</strong> ${currentRepo}
+</div>
 
 ## Overview
 

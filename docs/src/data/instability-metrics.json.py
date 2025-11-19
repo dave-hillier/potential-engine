@@ -16,7 +16,9 @@ from depanalysis.db_manager import DatabaseManager
 
 def get_instability_metrics(repo_name: str) -> dict:
     """Get instability metrics for a repository."""
-    db_manager = DatabaseManager()
+    # Point to data directory in repo root (not docs/)
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    db_manager = DatabaseManager(data_dir=data_dir)
 
     if not db_manager.repo_exists(repo_name):
         return {"error": f"Repository '{repo_name}' not found"}
@@ -29,12 +31,12 @@ def get_instability_metrics(repo_name: str) -> dict:
         instability_data = cursor.execute("""
             SELECT
                 module_path,
-                afferent_coupling AS ca,
-                efferent_coupling AS ce,
+                ca,
+                ce,
                 instability,
                 CASE
-                    WHEN instability > 0.8 AND afferent_coupling > 5 THEN 'high_risk'
-                    WHEN instability < 0.2 AND efferent_coupling > 5 THEN 'rigid'
+                    WHEN instability > 0.8 AND ca > 5 THEN 'high_risk'
+                    WHEN instability < 0.2 AND ce > 5 THEN 'rigid'
                     ELSE 'normal'
                 END AS classification
             FROM instability
@@ -44,10 +46,10 @@ def get_instability_metrics(repo_name: str) -> dict:
         # Get coupling distribution stats
         coupling_stats = cursor.execute("""
             SELECT
-                AVG(afferent_coupling) AS avg_ca,
-                MAX(afferent_coupling) AS max_ca,
-                AVG(efferent_coupling) AS avg_ce,
-                MAX(efferent_coupling) AS max_ce,
+                AVG(ca) AS avg_ca,
+                MAX(ca) AS max_ca,
+                AVG(ce) AS avg_ce,
+                MAX(ce) AS max_ce,
                 AVG(instability) AS avg_instability
             FROM instability
         """).fetchone()
@@ -84,7 +86,9 @@ def main():
     repo_name = sys.argv[1] if len(sys.argv) > 1 else None
 
     if not repo_name:
-        db_manager = DatabaseManager()
+        # Point to data directory in repo root (not docs/)
+        data_dir = Path(__file__).parent.parent.parent.parent / "data"
+        db_manager = DatabaseManager(data_dir=data_dir)
         repos = db_manager.list_analyzed_repos()
         if repos:
             repo_name = repos[0]

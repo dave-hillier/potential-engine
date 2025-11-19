@@ -10,7 +10,9 @@ from depanalysis.db_manager import DatabaseManager
 
 def get_complexity_distribution(repo_name: str) -> dict:
     """Get complexity distribution for a repository."""
-    db_manager = DatabaseManager()
+    # Point to data directory in repo root (not docs/)
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    db_manager = DatabaseManager(data_dir=data_dir)
 
     if not db_manager.repo_exists(repo_name):
         return {"error": f"Repository '{repo_name}' not found"}
@@ -80,7 +82,9 @@ def get_complexity_distribution(repo_name: str) -> dict:
 if __name__ == "__main__":
     repo_name = sys.argv[1] if len(sys.argv) > 1 else None
     if not repo_name:
-        db_manager = DatabaseManager()
+        # Point to data directory in repo root (not docs/)
+        data_dir = Path(__file__).parent.parent.parent.parent / "data"
+        db_manager = DatabaseManager(data_dir=data_dir)
         repos = db_manager.list_analyzed_repos()
         repo_name = repos[0] if repos else None
     if repo_name:

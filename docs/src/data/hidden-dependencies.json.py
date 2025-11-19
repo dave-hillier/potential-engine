@@ -22,7 +22,9 @@ def main():
     min_temporal_coupling = float(sys.argv[2]) if len(sys.argv) > 2 else 0.3
     min_co_changes = int(sys.argv[3]) if len(sys.argv) > 3 else 2
 
-    db_manager = DatabaseManager()
+    # Point to data directory in repo root (not docs/)
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    db_manager = DatabaseManager(data_dir=data_dir)
     metrics = MetricsAnalyzer(db_manager)
 
     try:

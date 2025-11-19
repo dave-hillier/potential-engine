@@ -3,9 +3,7 @@
 Side-by-side comparison of metrics across multiple repositories.
 
 ```js
-const summaries = FileAttachment("./data/all-repos-summary.json.py", {cache: false}).json({
-  command: ["../../venv/bin/python3", "./data/all-repos-summary.json.py"]
-});
+const summaries = FileAttachment("data/all-repos-summary.json").json();
 ```
 
 ## Repository Overview Comparison

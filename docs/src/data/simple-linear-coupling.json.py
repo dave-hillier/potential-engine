@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Data loader: Churn metrics for a specific repository.
-
-Usage: python churn.json.py <repo_name>
-"""
+"""Data loader: Coupling metrics for simple-linear repository."""
 
 import sys
 import json
@@ -14,22 +11,18 @@ from depanalysis.db_manager import DatabaseManager
 from depanalysis.metrics import MetricsAnalyzer
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python churn.json.py <repo_name>", file=sys.stderr)
-        sys.exit(1)
-
-    repo_name = sys.argv[1]
+    repo_name = "simple-linear"
     # Point to data directory in repo root (not docs/)
     data_dir = Path(__file__).parent.parent.parent.parent / "data"
     db_manager = DatabaseManager(data_dir=data_dir)
     metrics = MetricsAnalyzer(db_manager)
 
     try:
-        df = metrics.get_churn_metrics(repo_name)
+        df = metrics.get_temporal_coupling(repo_name)
         data = df.to_dict(orient="records")
         print(json.dumps(data, indent=2))
     except FileNotFoundError:
-        print(f"Error: Repository '{repo_name}' not found", file=sys.stderr)
+        print(json.dumps({"error": f"Repository '{repo_name}' not found"}), file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":

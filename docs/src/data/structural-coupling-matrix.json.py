@@ -27,7 +27,9 @@ def get_directory_path(file_path: str, depth: int = 1) -> str:
 
 def build_structural_matrix(repo_name: str):
     """Build structural dependency matrix from imports."""
-    db_manager = DatabaseManager()
+    # Point to data directory in repo root (not docs/)
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    db_manager = DatabaseManager(data_dir=data_dir)
 
     try:
         conn = db_manager.get_connection(repo_name, "structure")

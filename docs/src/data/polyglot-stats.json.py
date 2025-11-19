@@ -17,7 +17,9 @@ from depanalysis.db_manager import DatabaseManager
 
 def get_polyglot_stats(repo_name: str) -> dict:
     """Get polyglot statistics for a repository."""
-    db_manager = DatabaseManager()
+    # Point to data directory in repo root (not docs/)
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    db_manager = DatabaseManager(data_dir=data_dir)
 
     if not db_manager.repo_exists(repo_name):
         return {"error": f"Repository '{repo_name}' not found"}
@@ -190,7 +192,9 @@ def main():
 
     if not repo_name:
         # Get list of all repos
-        db_manager = DatabaseManager()
+        # Point to data directory in repo root (not docs/)
+        data_dir = Path(__file__).parent.parent.parent.parent / "data"
+        db_manager = DatabaseManager(data_dir=data_dir)
         repos = db_manager.list_analyzed_repos()
         if repos:
             repo_name = repos[0]  # Use first repo as default

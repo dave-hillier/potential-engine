@@ -3,18 +3,19 @@
 Comprehensive analysis combining structural and temporal metrics to identify maintenance bottlenecks and architectural issues.
 
 ```js
-const repos = FileAttachment("./data/repo-list.json").json();
+const repos = FileAttachment("data/repo-list.json").json();
+const currentRepo = repos[0];
 ```
 
 ```js
-const selectedRepo = view(Inputs.select(repos, {label: "Repository", value: repos[0]}));
+const hotspots = FileAttachment("data/hotspots.json").json();
+const cycles = FileAttachment("data/circular-dependencies.json").json();
+const hiddenDeps = FileAttachment("data/hidden-dependencies.json").json();
 ```
 
-```js
-const hotspots = FileAttachment(`./data/hotspots.json.py?repo=${selectedRepo}`).json();
-const cycles = FileAttachment(`./data/circular-dependencies.json.py?repo=${selectedRepo}`).json();
-const hiddenDeps = FileAttachment(`./data/hidden-dependencies.json.py?repo=${selectedRepo}`).json();
-```
+<div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">
+  <strong>Repository:</strong> ${currentRepo}
+</div>
 
 ## 🔥 Hotspots
 

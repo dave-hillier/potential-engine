@@ -1,16 +1,9 @@
 # Repository: simple-linear
 
 ```js
-const repoName = "simple-linear";
-const churn = FileAttachment("../data/churn.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/churn.json.py", repoName]
-});
-const coupling = FileAttachment("../data/coupling.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/coupling.json.py", repoName]
-});
-const authors = FileAttachment("../data/authors.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/authors.json.py", repoName]
-});
+const churn = FileAttachment("data/simple-linear-churn.json").json();
+const coupling = FileAttachment("data/simple-linear-coupling.json").json();
+const authors = FileAttachment("data/simple-linear-authors.json").json();
 ```
 
 ```js

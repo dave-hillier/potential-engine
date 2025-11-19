@@ -1,16 +1,9 @@
 # Repository: high-churn
 
 ```js
-const repoName = "high-churn";
-const churn = FileAttachment("../data/churn.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/churn.json.py", repoName]
-});
-const coupling = FileAttachment("../data/coupling.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/coupling.json.py", repoName]
-});
-const authors = FileAttachment("../data/authors.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/authors.json.py", repoName]
-});
+const churn = FileAttachment("data/high-churn-churn.json").json();
+const coupling = FileAttachment("data/high-churn-coupling.json").json();
+const authors = FileAttachment("data/high-churn-authors.json").json();
 ```
 
 ```js

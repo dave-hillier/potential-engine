@@ -3,11 +3,8 @@
 Explore structural and temporal coupling between files in an NDepend-style dependency matrix.
 
 ```js
-const repos = FileAttachment("./data/repo-list.json").json();
-```
-
-```js
-const selectedRepo = view(Inputs.select(repos, {label: "Repository", value: repos[0]}));
+const repos = FileAttachment("data/repo-list.json").json();
+const currentRepo = repos[0];
 ```
 
 ```js
@@ -21,15 +18,14 @@ const matrixType = view(Inputs.radio(
 ));
 ```
 
-```js
-// Load appropriate data based on matrix type
-const structuralData = matrixType === "structural"
-  ? await FileAttachment(`./data/structural-coupling-matrix.json.py?repo=${selectedRepo}`).json()
-  : null;
+<div style="background: #dbeafe; border-left: 4px solid #4facfe; border-radius: 8px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem;">
+  <strong>Repository:</strong> ${currentRepo}
+</div>
 
-const temporalData = matrixType === "temporal"
-  ? await FileAttachment(`./data/temporal-coupling-matrix.json.py?repo=${selectedRepo}`).json()
-  : null;
+```js
+// Load data for both matrix types (defaults to first repo)
+const structuralData = FileAttachment("data/structural-coupling-matrix.json").json();
+const temporalData = FileAttachment("data/temporal-coupling-matrix.json").json();
 
 const matrixData = matrixType === "structural" ? structuralData : temporalData;
 ```

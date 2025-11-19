@@ -1,16 +1,9 @@
 # Repository: multi-author
 
 ```js
-const repoName = "multi-author";
-const churn = FileAttachment("../data/churn.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/churn.json.py", repoName]
-});
-const coupling = FileAttachment("../data/coupling.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/coupling.json.py", repoName]
-});
-const authors = FileAttachment("../data/authors.json.py", {cache: false}).json({
-  command: ["../../../venv/bin/python3", "../data/authors.json.py", repoName]
-});
+const churn = FileAttachment("data/multi-author-churn.json").json();
+const coupling = FileAttachment("data/multi-author-coupling.json").json();
+const authors = FileAttachment("data/multi-author-authors.json").json();
 ```
 
 ```js

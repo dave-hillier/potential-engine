@@ -22,7 +22,9 @@ def main():
     min_complexity = int(sys.argv[2]) if len(sys.argv) > 2 else 5
     min_churn = int(sys.argv[3]) if len(sys.argv) > 3 else 3
 
-    db_manager = DatabaseManager()
+    # Point to data directory in repo root (not docs/)
+    data_dir = Path(__file__).parent.parent.parent.parent / "data"
+    db_manager = DatabaseManager(data_dir=data_dir)
     metrics = MetricsAnalyzer(db_manager)
 
     try:
