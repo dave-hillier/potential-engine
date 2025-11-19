@@ -11,6 +11,7 @@ from depanalysis.git_analyzer import GitAnalyzer, discover_repositories
 from depanalysis.metrics import MetricsAnalyzer
 from depanalysis.structure_analyzer import StructureAnalyzer
 from depanalysis.typescript_analyzer import TypeScriptAnalyzer
+from depanalysis.csharp_analyzer import CSharpAnalyzer
 from depanalysis.cross_language_analyzer import CrossLanguageAnalyzer
 from depanalysis.ecosystem_analyzer import EcosystemAnalyzer
 
@@ -131,6 +132,25 @@ def analyze_repo(repository: Path):
                 click.echo(f"  ! Encountered {stats_ts['errors']} parsing errors")
         else:
             click.echo("  - No TypeScript/JavaScript files found")
+
+        # 3a. Analyze C# Code Structure
+        click.echo("\nAnalyzing C# Code Structure...")
+        cs_analyzer = CSharpAnalyzer(repository, conn_struct)
+        stats_cs = cs_analyzer.analyze()
+
+        if stats_cs['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_cs['files_parsed']} C# files")
+            click.echo(f"  ✓ Found {stats_cs['classes_found']} classes")
+            click.echo(f"  ✓ Found {stats_cs['interfaces_found']} interfaces")
+            click.echo(f"  ✓ Found {stats_cs['structs_found']} structs")
+            click.echo(f"  ✓ Found {stats_cs['enums_found']} enums")
+            click.echo(f"  ✓ Found {stats_cs['methods_found']} methods")
+            click.echo(f"  ✓ Found {stats_cs['properties_found']} properties")
+            click.echo(f"  ✓ Found {stats_cs['using_statements_found']} using statements")
+            if stats_cs['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_cs['errors']} parsing errors")
+        else:
+            click.echo("  - No C# files found")
 
         # 4. Analyze Cross-Language Dependencies (Tier 2 Feature 5)
         click.echo("\nAnalyzing Cross-Language Dependencies...")
