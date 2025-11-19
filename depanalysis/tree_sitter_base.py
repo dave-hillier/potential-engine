@@ -44,10 +44,9 @@ class TreeSitterParser(ABC):
         # Get or create language ID
         self.language_id = self._get_or_create_language_id(language_name)
 
-        # Initialize tree-sitter parser
-        self.parser = Parser()
+        # Initialize tree-sitter parser with language (API v0.22+)
         self.language = self._load_language()
-        self.parser.set_language(self.language)
+        self.parser = Parser(self.language)
 
     @abstractmethod
     def _load_language(self) -> Language:
