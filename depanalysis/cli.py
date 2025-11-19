@@ -10,6 +10,9 @@ from depanalysis.db_manager import DatabaseManager, get_repo_name_from_path
 from depanalysis.git_analyzer import GitAnalyzer, discover_repositories
 from depanalysis.metrics import MetricsAnalyzer
 from depanalysis.structure_analyzer import StructureAnalyzer
+from depanalysis.typescript_analyzer import TypeScriptAnalyzer
+from depanalysis.cross_language_analyzer import CrossLanguageAnalyzer
+from depanalysis.ecosystem_analyzer import EcosystemAnalyzer
 
 
 @click.group()
@@ -99,12 +102,11 @@ def analyze_repo(repository: Path):
         click.echo(f"  ✓ Tracked {stats_hist['files_tracked']} files")
         click.echo(f"  ✓ Calculated {stats_hist['temporal_couplings']} temporal couplings")
 
-        # 2. Analyze Structure
-        click.echo("\nAnalyzing Code Structure...")
+        # 2. Analyze Structure (Python)
+        click.echo("\nAnalyzing Python Code Structure...")
         conn_struct = db_manager.get_connection(repo_name, "structure")
         struct_analyzer = StructureAnalyzer(repository, conn_struct)
         stats_struct = struct_analyzer.analyze()
-        conn_struct.close()
 
         click.echo(f"  ✓ Parsed {stats_struct['files_parsed']} Python files")
         click.echo(f"  ✓ Found {stats_struct['classes_found']} classes")
@@ -112,6 +114,65 @@ def analyze_repo(repository: Path):
         click.echo(f"  ✓ Found {stats_struct['imports_found']} imports")
         if stats_struct['errors'] > 0:
             click.echo(f"  ! Encountered {stats_struct['errors']} parsing errors")
+
+        # 3. Analyze TypeScript/JavaScript (Tier 2 Feature 4)
+        click.echo("\nAnalyzing TypeScript/JavaScript Code Structure...")
+        ts_analyzer = TypeScriptAnalyzer(repository, conn_struct)
+        stats_ts = ts_analyzer.analyze()
+
+        if stats_ts['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_ts['files_parsed']} TypeScript/JavaScript files")
+            click.echo(f"    - {stats_ts['typescript_files']} TypeScript files")
+            click.echo(f"    - {stats_ts['javascript_files']} JavaScript files")
+            click.echo(f"  ✓ Found {stats_ts['classes_found']} classes")
+            click.echo(f"  ✓ Found {stats_ts['functions_found']} functions")
+            click.echo(f"  ✓ Found {stats_ts['imports_found']} imports")
+            if stats_ts['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_ts['errors']} parsing errors")
+        else:
+            click.echo("  - No TypeScript/JavaScript files found")
+
+        # 4. Analyze Cross-Language Dependencies (Tier 2 Feature 5)
+        click.echo("\nAnalyzing Cross-Language Dependencies...")
+        cross_lang_analyzer = CrossLanguageAnalyzer(repository, conn_struct, conn_hist)
+        stats_cross = cross_lang_analyzer.analyze()
+
+        if stats_cross['api_endpoints_found'] > 0 or stats_cross['api_calls_found'] > 0:
+            click.echo(f"  ✓ Found {stats_cross['api_endpoints_found']} API endpoints")
+            click.echo(f"  ✓ Found {stats_cross['api_calls_found']} API calls")
+            click.echo(f"  ✓ Found {stats_cross['shared_types_found']} shared type definitions")
+            click.echo(f"    - {stats_cross['proto_files']} Protocol Buffer files")
+            click.echo(f"    - {stats_cross['graphql_files']} GraphQL files")
+            click.echo(f"    - {stats_cross['openapi_files']} OpenAPI specifications")
+        else:
+            click.echo("  - No cross-language dependencies detected")
+
+        # 5. Analyze Language Ecosystem Dependencies (Tier 2 Feature 6)
+        click.echo("\nAnalyzing Language Ecosystem Dependencies...")
+        ecosystem_analyzer = EcosystemAnalyzer(repository, conn_struct)
+        stats_ecosystem = ecosystem_analyzer.analyze()
+
+        if stats_ecosystem['dependencies_found'] > 0:
+            click.echo(f"  ✓ Analyzed {stats_ecosystem['manifest_files']} package manifest files")
+            click.echo(f"  ✓ Found {stats_ecosystem['dependencies_found']} external dependencies")
+            if stats_ecosystem['python_deps'] > 0:
+                click.echo(f"    - {stats_ecosystem['python_deps']} Python packages")
+            if stats_ecosystem['javascript_deps'] > 0:
+                click.echo(f"    - {stats_ecosystem['javascript_deps']} JavaScript/TypeScript packages")
+            if stats_ecosystem['rust_deps'] > 0:
+                click.echo(f"    - {stats_ecosystem['rust_deps']} Rust crates")
+            if stats_ecosystem['java_deps'] > 0:
+                click.echo(f"    - {stats_ecosystem['java_deps']} Java packages")
+            if stats_ecosystem['go_deps'] > 0:
+                click.echo(f"    - {stats_ecosystem['go_deps']} Go modules")
+            if stats_ecosystem['cpp_deps'] > 0:
+                click.echo(f"    - {stats_ecosystem['cpp_deps']} C++ libraries")
+            if stats_ecosystem['conflicts_found'] > 0:
+                click.echo(f"  ⚠ Detected {stats_ecosystem['conflicts_found']} version conflicts")
+        else:
+            click.echo("  - No package manifest files found")
+
+        conn_struct.close()
 
         click.echo(f"\nData stored in:")
         click.echo(f"  - {history_db}")

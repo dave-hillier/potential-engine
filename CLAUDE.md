@@ -19,13 +19,22 @@ A multi-language dependency analysis tool that combines static structural analys
 - **Multi-Repository Support**: Separate databases per repo with cross-repo comparison
 - **Observable Framework Reports**: Interactive web dashboards with visualizations
 - **Data Export**: CSV and JSON export capabilities
+- **Python AST Parser**: Full structural analysis (modules, classes, functions, imports)
+- **Structural Metrics**: Afferent/efferent coupling, instability, complexity
+
+### ✅ Implemented (Tier 2: Polyglot Repository Support)
+- **TypeScript/JavaScript Parser**: Parses .ts, .tsx, .js, .jsx files with ES6/CommonJS imports
+- **Cross-Language Dependency Tracking**: API boundaries, shared types (Protocol Buffers, GraphQL, OpenAPI)
+- **Language Ecosystem Analysis**: Package dependency parsing for Python, JavaScript, Rust, Java, Go, C++
+- **Version Conflict Detection**: Identifies dependency version mismatches across manifest files
+- **API Endpoint Detection**: Flask/FastAPI routes, REST endpoints
+- **API Call Detection**: fetch(), axios() calls to internal/external APIs
+- **Shared Type Definitions**: Protocol Buffer messages, GraphQL types, OpenAPI schemas
 
 ### 🚧 Planned (Future)
-- **AST Parser**: Python structural analysis (modules, classes, functions, imports)
-- **Structural Metrics**: Afferent/efferent coupling, instability, complexity
 - **Combined Metrics**: Hotspots (structural + temporal analysis)
 - **Circular Dependency Detection**: Graph algorithms for cycle detection
-- **Additional Languages**: TypeScript, C#, Java parsers
+- **Additional Languages**: C#, Rust, C++, Go full AST parsers (ecosystem support exists, deep AST parsing pending)
 - **GraphML Export**: For external visualization tools
 
 ## Architecture
