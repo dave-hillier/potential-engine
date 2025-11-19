@@ -19,11 +19,18 @@ A multi-language dependency analysis tool that combines static structural analys
 - **Multi-Repository Support**: Separate databases per repo with cross-repo comparison
 - **Observable Framework Reports**: Interactive web dashboards with visualizations
 - **Data Export**: CSV and JSON export capabilities
-- **Python AST Parser**: Full structural analysis (modules, classes, functions, imports)
+- **Python Parser (tree-sitter)**: Full structural analysis (modules, classes, functions, imports)
 - **Structural Metrics**: Afferent/efferent coupling, instability, complexity
 
 ### ✅ Implemented (Tier 2: Polyglot Repository Support)
-- **TypeScript/JavaScript Parser**: Parses .ts, .tsx, .js, .jsx files with ES6/CommonJS imports
+- **Tree-Sitter Based Parsers**: Unified parsing framework for all languages
+  - **Python Parser**: Full structural analysis with decorators, type hints, complexity metrics
+  - **TypeScript/JavaScript Parser**: Classes, interfaces, functions, imports (ES6, CommonJS)
+  - **C# Parser**: Namespaces, classes, interfaces, structs, enums, methods, properties
+  - **Java Parser**: Packages, classes, interfaces, methods, inheritance
+  - **Rust Parser**: Modules, structs, traits, functions, use statements
+  - **C++ Parser**: Classes, structs, functions, includes, namespaces
+  - **Go Parser**: Packages, types, interfaces, functions, imports
 - **Cross-Language Dependency Tracking**: API boundaries, shared types (Protocol Buffers, GraphQL, OpenAPI)
 - **Language Ecosystem Analysis**: Package dependency parsing for Python, JavaScript, Rust, Java, Go, C++
 - **Version Conflict Detection**: Identifies dependency version mismatches across manifest files
@@ -34,7 +41,7 @@ A multi-language dependency analysis tool that combines static structural analys
 ### 🚧 Planned (Future)
 - **Combined Metrics**: Hotspots (structural + temporal analysis)
 - **Circular Dependency Detection**: Graph algorithms for cycle detection
-- **Additional Languages**: C#, Rust, C++, Go full AST parsers (ecosystem support exists, deep AST parsing pending)
+- **Enhanced Language Support**: Deeper analysis for all languages (generics, macros, etc.)
 - **GraphML Export**: For external visualization tools
 
 ## Architecture
@@ -55,15 +62,27 @@ These databases are the source of truth, not caches. Analysis is performed via S
 
 ### Core Components
 
-1. **Parser Component**: Language-specific parsers write to language-agnostic schema in structure.db
-   - **Language Detection**: File extension-based (.py, .ts, .cs, .java, .rs, .cpp, .go)
-   - **Python Parser (MVP)**: Parses Python AST and writes to structure.db
-     - Captures all relationships during initial parse (imports, calls, inheritance, decorators, type hints)
-     - Uses file hash tracking for incremental updates
-     - Only reparses files that have changed
-   - **Future Parsers**: TypeScript, C#, Java, Rust, C++, Go
-     - Each writes to same core schema (modules, classes, functions, dependencies)
-     - Language-specific features stored in extension tables
+1. **Parser Component**: Tree-sitter-based parsers write to language-agnostic schema in structure.db
+   - **Unified Tree-Sitter Framework**: All language parsers use tree-sitter for robust, error-tolerant parsing
+   - **Language Detection**: File extension-based (.py, .ts, .js, .cs, .java, .rs, .cpp, .go)
+   - **Base Parser Class**: Common functionality for all languages
+     - File hash tracking for incremental updates (only reparse changed files)
+     - Consistent node traversal and database insertion patterns
+     - Error recovery and handling
+   - **Language-Specific Parsers**: Each extends the base class
+     - **TreeSitterPythonParser**: Classes, functions, decorators, type hints, imports, calls
+     - **TreeSitterTypeScriptParser**: Classes, interfaces, methods, arrow functions, imports
+     - **TreeSitterJavaScriptParser**: Shares TypeScript logic for JavaScript-specific syntax
+     - **TreeSitterCSharpParser**: Namespaces, classes, interfaces, structs, enums, properties
+     - **TreeSitterJavaParser**: Packages, classes, interfaces, methods, inheritance
+     - **TreeSitterRustParser**: Modules, structs, traits, functions, use statements
+     - **TreeSitterCppParser**: Classes, structs, functions, includes
+     - **TreeSitterGoParser**: Packages, types, interfaces, functions, methods
+   - **Advantages of Tree-Sitter**:
+     - Robust error recovery (can parse incomplete/invalid code)
+     - Fast incremental parsing
+     - Consistent API across all languages
+     - Better handling of edge cases vs regex-based parsing
 
 2. **Git Analyzer Component**: Processes repository history and writes to history.db
    - Extracts temporal coupling (files that change together)
@@ -78,7 +97,7 @@ These databases are the source of truth, not caches. Analysis is performed via S
 ### Data Flow
 
 ```
-Python Source → AST Parser → structure.db
+Source Files (Python, TypeScript, C#, etc.) → Tree-Sitter Parser → structure.db
 Git History → Git Analyzer → history.db
 Both DBs → SQL Queries/Views → Metrics
 Both DBs → Python (when needed) → Complex Algorithms
