@@ -4,7 +4,11 @@ Class hierarchies, interface implementations, and OOP design patterns.
 
 ```js
 const repos = FileAttachment("../data/repo-list.json").json();
-const currentRepo = repos[0];
+```
+
+```js
+// Get the first repository name
+const currentRepo = (await repos)[0];
 ```
 
 ```js

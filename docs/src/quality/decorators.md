@@ -4,7 +4,11 @@ Framework decorators, Flask/FastAPI routes, and decorator patterns across the co
 
 ```js
 const repos = FileAttachment("../data/repo-list.json").json();
-const currentRepo = repos[0];
+```
+
+```js
+// Get the first repository name
+const currentRepo = (await repos)[0];
 ```
 
 ```js

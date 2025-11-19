@@ -4,7 +4,11 @@ Explore structural and temporal coupling between files in an NDepend-style depen
 
 ```js
 const repos = FileAttachment("../data/repo-list.json").json();
-const currentRepo = repos[0];
+```
+
+```js
+// Get the first repository name
+const currentRepo = (await repos)[0];
 ```
 
 ```js
