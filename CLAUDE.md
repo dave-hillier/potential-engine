@@ -6,43 +6,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A multi-language dependency analysis tool that combines static structural analysis (AST parsing) with temporal behavioral analysis (Git history) to identify architectural issues, coupling problems, and maintenance hotspots. Inspired by NDepend for .NET.
 
-**Language Support**: The tool uses a language-agnostic core architecture supporting Python, TypeScript, JavaScript, C#, Java, Rust, C++, and Go. The initial MVP focuses on Python parser implementation, but the schema and architecture support polyglot repositories from the ground up.
+**Language Support**: The tool uses a language-agnostic core architecture with tree-sitter-based parsers for Python, TypeScript, JavaScript, C#, Java, Rust, C++, and Go. The schema supports polyglot repositories from the ground up.
 
 ## Current Implementation Status
 
-### ✅ Implemented (MVP)
-- **Git History Analyzer**: Full implementation extracting commits, authors, file changes
+### ✅ Core Features
+- **Git History Analysis**: Extracts commits, authors, file changes, and temporal patterns
 - **Temporal Coupling**: Jaccard similarity calculation for files that change together
 - **Churn Metrics**: File-level change frequency and magnitude tracking
 - **Author Analytics**: Contribution patterns and code ownership statistics
+- **Structural Metrics**: Afferent/efferent coupling, instability, cyclomatic complexity
 - **CLI Tool**: Complete command-line interface for analysis and reporting
 - **Multi-Repository Support**: Separate databases per repo with cross-repo comparison
-- **Observable Framework Reports**: Interactive web dashboards with visualizations
+- **Observable Framework**: Interactive web dashboards with visualizations
 - **Data Export**: CSV and JSON export capabilities
-- **Python Parser (tree-sitter)**: Full structural analysis (modules, classes, functions, imports)
-- **Structural Metrics**: Afferent/efferent coupling, instability, complexity
 
-### ✅ Implemented (Tier 2: Polyglot Repository Support)
-- **Tree-Sitter Based Parsers**: Unified parsing framework for all languages
-  - **Python Parser**: Full structural analysis with decorators, type hints, complexity metrics
-  - **TypeScript/JavaScript Parser**: Classes, interfaces, functions, imports (ES6, CommonJS)
-  - **C# Parser**: Namespaces, classes, interfaces, structs, enums, methods, properties
-  - **Java Parser**: Packages, classes, interfaces, methods, inheritance
-  - **Rust Parser**: Modules, structs, traits, functions, use statements
-  - **C++ Parser**: Classes, structs, functions, includes, namespaces
-  - **Go Parser**: Packages, types, interfaces, functions, imports
-- **Cross-Language Dependency Tracking**: API boundaries, shared types (Protocol Buffers, GraphQL, OpenAPI)
-- **Language Ecosystem Analysis**: Package dependency parsing for Python, JavaScript, Rust, Java, Go, C++
-- **Version Conflict Detection**: Identifies dependency version mismatches across manifest files
-- **API Endpoint Detection**: Flask/FastAPI routes, REST endpoints
-- **API Call Detection**: fetch(), axios() calls to internal/external APIs
-- **Shared Type Definitions**: Protocol Buffer messages, GraphQL types, OpenAPI schemas
+### ✅ Language Support (Tree-Sitter Parsers)
+- **Python**: Classes, functions, decorators, type hints, imports, calls, complexity metrics
+- **TypeScript/JavaScript**: Classes, interfaces, methods, arrow functions, imports (ES6, CommonJS)
+- **C#**: Namespaces, classes, interfaces, structs, enums, methods, properties
+- **Java**: Packages, classes, interfaces, methods, inheritance
+- **Rust**: Modules, structs, traits, functions, use statements
+- **C++**: Classes, structs, functions, includes, namespaces
+- **Go**: Packages, types, interfaces, functions, methods
 
-### 🚧 Planned (Future)
-- **Combined Metrics**: Hotspots (structural + temporal analysis)
-- **Circular Dependency Detection**: Graph algorithms for cycle detection
-- **Enhanced Language Support**: Deeper analysis for all languages (generics, macros, etc.)
-- **GraphML Export**: For external visualization tools
+### ✅ Cross-Language Analysis
+- **API Boundary Detection**: Flask/FastAPI routes, REST endpoints, API calls (fetch, axios)
+- **Shared Types**: Protocol Buffer messages, GraphQL schemas, OpenAPI definitions
+- **Ecosystem Analysis**: Package dependency parsing (requirements.txt, package.json, Cargo.toml, pom.xml, go.mod)
+- **Version Conflicts**: Identifies dependency version mismatches across manifest files
+
+### 🚧 Future Enhancements
+- **Hotspot Analysis**: Combined structural + temporal metrics for high-risk code identification
+- **Circular Dependency Detection**: Graph algorithms for cycle detection and visualization
+- **Enhanced Type Analysis**: Deeper analysis for generics, macros, and advanced language features
+- **GraphML Export**: For external graph visualization tools
 
 ## Architecture
 
@@ -294,9 +292,9 @@ Derived data: temporal_coupling (pairwise co-change frequencies), author_ownersh
 
 **Note**: history.db is 100% language-agnostic and unchanged from original design.
 
-## Out of Scope (MVP)
+## Out of Scope
 
-- Advanced graph libraries (NetworkX) - implement algorithms directly
+- Advanced graph libraries (NetworkX) - implement algorithms directly using SQLite and Python
 - Type inference beyond AST (use libraries like astroid if needed later)
-- CI/CD integration
-- Real-time monitoring
+- CI/CD integration (future)
+- Real-time monitoring (future)

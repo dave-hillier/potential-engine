@@ -1,15 +1,21 @@
 # depanalysis
 
-Python dependency and Git history analyzer combining static structural analysis with temporal behavioral analysis to identify architectural issues, coupling problems, and maintenance hotspots.
+Multi-language dependency and Git history analyzer combining static structural analysis (AST parsing) with temporal behavioral analysis to identify architectural issues, coupling problems, and maintenance hotspots.
 
 ## Features
 
-- **Git History Analysis**: Extract commits, file changes, and temporal coupling metrics
-- **Temporal Coupling Detection**: Identify files that frequently change together using Jaccard similarity
+### Core Analysis
+- **Multi-Language Support**: Python, TypeScript, JavaScript, C#, Java, Rust, C++, and Go via tree-sitter parsers
+- **Structural Analysis**: Afferent/efferent coupling, instability, cyclomatic complexity
+- **Git History Analysis**: Commits, file changes, temporal coupling, and churn metrics
+- **Temporal Coupling**: Identify files that frequently change together using Jaccard similarity
 - **Author Analytics**: Track contributor patterns and code ownership
-- **Churn Metrics**: Measure frequency and magnitude of changes
-- **Interactive Reports**: Observable Framework dashboards with visualizations
-- **Multi-Repository Support**: Analyze multiple repositories with cross-repo comparisons
+- **Cross-Language Features**: API boundary detection, shared type definitions, ecosystem analysis
+
+### Visualization & Export
+- **Interactive Dashboards**: Observable Framework web-based visualizations
+- **Multi-Repository Comparison**: Analyze multiple repositories with cross-repo comparisons
+- **Data Export**: CSV and JSON export for external analysis
 
 ## Installation
 
@@ -122,16 +128,25 @@ Analysis data is stored in SQLite databases:
 ```
 data/
 ├── <repo_name>/
-│   ├── structure.db  # AST-parsed structural relationships (future)
+│   ├── structure.db  # AST-parsed structural relationships (all languages)
 │   └── history.db    # Git history and temporal coupling
 ```
 
 Each repository has its own separate databases, enabling:
 - Independent analysis per repository
-- Cross-repository comparisons via in-memory joins
-- Efficient incremental updates
+- Cross-repository comparisons
+- Efficient incremental updates with file hash tracking
+- Language-agnostic schema supporting polyglot repositories
 
 ## Key Metrics
+
+### Structural Metrics
+
+- **Afferent Coupling (Ca)**: Incoming dependencies to a module
+- **Efferent Coupling (Ce)**: Outgoing dependencies from a module
+- **Instability**: Ce / (Ca + Ce)
+- **Cyclomatic Complexity**: Independent paths through code
+- **Dependencies**: Import relationships, inheritance, function calls
 
 ### Temporal Metrics
 
@@ -162,15 +177,23 @@ The project includes 3 synthetic test repositories:
 
 ### Dual Database Design
 
-- **structure.db**: AST-parsed structural relationships (future)
-- **history.db**: Git history analysis (implemented)
+- **structure.db**: AST-parsed structural relationships across all supported languages
+  - Language-agnostic core schema (modules, classes, functions, imports, calls, inheritance)
+  - Language-specific extensions (decorators, type hints, generic parameters)
+  - Tree-sitter based parsers for robust, error-tolerant parsing
+- **history.db**: Git history analysis (commits, file changes, authors, temporal coupling)
+  - 100% language-agnostic
+  - Enables cross-language temporal coupling analysis
 
 ### Data Flow
 
 ```
-Git History → Git Analyzer → history.db → Python API → CLI/Reports
-                                        ↓
-                                   Observable Framework
+Source Code (7 languages) → Tree-Sitter Parsers → structure.db
+Git History → Git Analyzer → history.db
+                ↓
+        SQL Queries & Views → Metrics
+                ↓
+        Python API → CLI/Observable Framework
 ```
 
 ## Development
@@ -225,9 +248,9 @@ ISC
 
 ## Contributing
 
-Contributions welcome! This is an early-stage project focused on Git history analysis. Future additions include:
-- AST parser for Python structural analysis
-- Additional language support (TypeScript, C#, Java, etc.)
-- Combined structural + temporal metrics (hotspots)
-- Circular dependency detection
-- More visualization options
+Contributions welcome! The project has solid foundations with multi-language support and dual analysis (structural + temporal). Future enhancements include:
+- Hotspot analysis (combining structural + temporal metrics)
+- Circular dependency detection and visualization
+- Enhanced type analysis (generics, macros, advanced features)
+- GraphML export for external visualization tools
+- Additional visualization dashboards
