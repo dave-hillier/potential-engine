@@ -31,6 +31,9 @@ pip install -e .
 ## Quick Start
 
 ```bash
+# Generate example repositories (first-time setup)
+depanalysis regenerate-examples
+
 # Analyze a directory containing Git repositories
 depanalysis analyze-dir examples/repos
 
@@ -93,6 +96,9 @@ depanalysis analyze-dir <directory>
 
 # Analyze a single repository
 depanalysis analyze-repo <repository_path>
+
+# Generate example repositories for testing and documentation
+depanalysis regenerate-examples [--clean]
 ```
 
 ### Viewing Metrics
@@ -120,6 +126,49 @@ depanalysis compare-repos <repo1> <repo2> [repo3...]
 # List all analyzed repositories
 depanalysis list
 ```
+
+## Example Repositories
+
+The project includes three example repositories that demonstrate different patterns:
+
+### simple-linear
+- **Purpose**: Single author, linear history, clear dependency chain
+- **Commits**: 5 commits over 30 days
+- **Files**: 3 Python files (main.py, utils.py, config.py)
+- **Pattern**: Progressive feature development with imports
+
+### multi-author
+- **Purpose**: Multiple contributors, overlapping changes, temporal coupling
+- **Commits**: 7 commits from 3 different authors
+- **Files**: 3 Python files (server.py, client.py, protocol.py)
+- **Pattern**: Collaborative development with shared protocol
+
+### high-churn
+- **Purpose**: Frequent changes, strong temporal coupling, hotspot detection
+- **Commits**: 14 commits showing iterative refinement
+- **Files**: 3 Python files (models.py, views.py, tests.py)
+- **Pattern**: models.py and views.py always change together (strong coupling)
+
+### Regenerating Examples
+
+To regenerate the example repositories and their databases:
+
+```bash
+# Generate repos and analyze them (creates both structure.db and history.db)
+depanalysis regenerate-examples
+
+# Or with --clean to remove existing databases first
+depanalysis regenerate-examples --clean
+
+# Run tests to verify
+pytest tests/test_examples.py
+```
+
+The `regenerate-examples` command:
+1. Creates Git repositories with realistic commit histories in `examples/repos/`
+2. Analyzes each repository to generate `structure.db` and `history.db`
+3. Stores databases in `data/<repo-name>/`
+4. Validates that examples are ready for development and testing
 
 ## Data Storage
 

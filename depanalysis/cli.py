@@ -447,5 +447,109 @@ def list_repos():
         click.echo(f"  - {repo}")
 
 
+@main.command()
+@click.option("--clean", is_flag=True, help="Remove existing databases before regenerating")
+def regenerate_examples(clean):
+    """
+    Regenerate all example repositories and their databases.
+
+    This command:
+    1. Generates example Git repositories (simple-linear, multi-author, high-churn)
+    2. Analyzes each repository to create structure.db and history.db
+    3. Validates the generated databases
+
+    Use this to create test data for development and documentation.
+    """
+    import subprocess
+    import sys
+
+    examples_dir = Path(__file__).parent.parent / "examples" / "repos"
+    script_path = Path(__file__).parent.parent / "scripts" / "generate_examples.py"
+
+    # Step 1: Generate example repositories
+    click.echo("Step 1: Generating example repositories...")
+    click.echo("=" * 70)
+
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        click.echo(result.stdout)
+    except subprocess.CalledProcessError as e:
+        click.echo(f"Error generating examples: {e.stderr}", err=True)
+        return
+    except FileNotFoundError:
+        click.echo(f"Error: Script not found at {script_path}", err=True)
+        return
+
+    # Step 2: Analyze each example repository
+    click.echo("\nStep 2: Analyzing example repositories...")
+    click.echo("=" * 70)
+
+    db_manager = DatabaseManager()
+    example_repos = ["simple-linear", "multi-author", "high-churn"]
+
+    for repo_name in example_repos:
+        repo_path = examples_dir / repo_name
+
+        if not repo_path.exists():
+            click.echo(f"Warning: {repo_name} not found, skipping...", err=True)
+            continue
+
+        # Clean existing databases if requested
+        if clean and db_manager.repo_exists(repo_name):
+            click.echo(f"\nCleaning existing databases for {repo_name}...")
+            db_manager.delete_repo_databases(repo_name)
+
+        click.echo(f"\nAnalyzing {repo_name}...")
+
+        try:
+            # Initialize databases
+            structure_db, history_db = db_manager.initialize_repo_databases(repo_name)
+
+            # Analyze Git history
+            conn_hist = db_manager.get_connection(repo_name, "history")
+            git_analyzer = GitAnalyzer(repo_path, conn_hist)
+            stats_hist = git_analyzer.analyze()
+            conn_hist.close()
+
+            click.echo(f"  ✓ Processed {stats_hist['commits_processed']} commits")
+            click.echo(f"  ✓ Found {stats_hist['authors_found']} authors")
+            click.echo(f"  ✓ Tracked {stats_hist['files_tracked']} files")
+
+            # Analyze source structure
+            conn_struct = db_manager.get_connection(repo_name, "structure")
+
+            # Python parser
+            python_parser = TreeSitterPythonParser(repo_path, conn_struct)
+            stats_python = python_parser.analyze()
+
+            if stats_python['files_parsed'] > 0:
+                click.echo(f"  ✓ Parsed {stats_python['files_parsed']} Python files")
+                click.echo(f"  ✓ Found {stats_python['classes_found']} classes")
+                click.echo(f"  ✓ Found {stats_python['functions_found']} functions")
+
+            conn_struct.close()
+
+        except Exception as e:
+            click.echo(f"  ✗ Error analyzing {repo_name}: {e}", err=True)
+            continue
+
+    click.echo("\n" + "=" * 70)
+    click.echo("✓ All examples regenerated successfully!")
+    click.echo("\nGenerated databases:")
+    for repo_name in example_repos:
+        if db_manager.repo_exists(repo_name):
+            click.echo(f"  - data/{repo_name}/structure.db")
+            click.echo(f"  - data/{repo_name}/history.db")
+
+    click.echo("\nNext steps:")
+    click.echo("  - Run tests: pytest tests/test_examples.py")
+    click.echo("  - Test data loaders: cd docs && npm run dev")
+
+
 if __name__ == "__main__":
     main()
