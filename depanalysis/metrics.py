@@ -419,6 +419,128 @@ class MetricsAnalyzer:
         return pd.DataFrame(rows)
 
     # =========================================================================
+    # Cross-Language and API Boundary Metrics (from structure.db)
+    # =========================================================================
+
+    def get_api_boundary_matches(self, repo_name: str) -> Dict:
+        """
+        Get API boundary coupling with matched and unmatched calls/endpoints.
+
+        Performs pattern matching between API calls and endpoints to identify:
+        - Matched boundaries (internal API calls)
+        - Unmatched calls (external APIs or missing endpoints)
+        - Unmatched endpoints (not called internally)
+
+        Args:
+            repo_name: Name of the repository
+
+        Returns:
+            Dictionary containing matched_boundaries, unmatched_calls, unmatched_endpoints, and summary
+        """
+        conn = self.db_manager.get_connection(repo_name, "structure")
+        cursor = conn.cursor()
+
+        # Get all API endpoints with module info
+        endpoints = cursor.execute("""
+            SELECT
+                e.id,
+                e.endpoint_type,
+                e.method,
+                e.path,
+                e.line_number,
+                m.path AS module_path,
+                l.name AS language
+            FROM api_endpoints e
+            JOIN modules m ON e.module_id = m.id
+            JOIN languages l ON m.language_id = l.id
+            ORDER BY e.path
+        """).fetchall()
+
+        # Get all API calls with module info
+        calls = cursor.execute("""
+            SELECT
+                c.id,
+                c.call_type,
+                c.method,
+                c.url_pattern,
+                c.line_number,
+                m.path AS module_path,
+                l.name AS language
+            FROM api_calls c
+            JOIN modules m ON c.from_module_id = m.id
+            JOIN languages l ON m.language_id = l.id
+            ORDER BY c.url_pattern
+        """).fetchall()
+
+        conn.close()
+
+        # Match calls to endpoints (simple pattern matching)
+        matched_boundaries = []
+        for call in calls:
+            call_url = call[3]
+            for endpoint in endpoints:
+                endpoint_path = endpoint[3]
+                # Simple matching - endpoint path is substring of call URL
+                if endpoint_path in call_url and call[2] == endpoint[2]:  # Match method too
+                    matched_boundaries.append({
+                        "call_url": call_url,
+                        "call_method": call[2],
+                        "call_type": call[1],
+                        "caller_module": call[5],
+                        "caller_language": call[6],
+                        "caller_line": call[4],
+                        "endpoint_path": endpoint_path,
+                        "endpoint_method": endpoint[2],
+                        "endpoint_type": endpoint[1],
+                        "endpoint_module": endpoint[5],
+                        "endpoint_language": endpoint[6],
+                        "endpoint_line": endpoint[4]
+                    })
+
+        # Unmatched calls (potential external APIs or missing endpoints)
+        matched_urls = {m["call_url"] for m in matched_boundaries}
+        unmatched_calls = [
+            {
+                "url": call[3],
+                "method": call[2],
+                "type": call[1],
+                "module": call[5],
+                "language": call[6],
+                "line": call[4]
+            }
+            for call in calls
+            if call[3] not in matched_urls
+        ]
+
+        # Unmatched endpoints (not called internally)
+        matched_paths = {m["endpoint_path"] for m in matched_boundaries}
+        unmatched_endpoints = [
+            {
+                "path": endpoint[3],
+                "method": endpoint[2],
+                "type": endpoint[1],
+                "module": endpoint[5],
+                "language": endpoint[6],
+                "line": endpoint[4]
+            }
+            for endpoint in endpoints
+            if endpoint[3] not in matched_paths
+        ]
+
+        return {
+            "matched_boundaries": matched_boundaries,
+            "unmatched_calls": unmatched_calls,
+            "unmatched_endpoints": unmatched_endpoints,
+            "summary": {
+                "total_endpoints": len(endpoints),
+                "total_calls": len(calls),
+                "matched_count": len(matched_boundaries),
+                "unmatched_calls_count": len(unmatched_calls),
+                "unmatched_endpoints_count": len(unmatched_endpoints)
+            }
+        }
+
+    # =========================================================================
     # Combined Metrics (structure.db + history.db)
     # =========================================================================
 

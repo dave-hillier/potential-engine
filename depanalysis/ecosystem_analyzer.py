@@ -1,7 +1,7 @@
 """
-Language ecosystem and package dependency analyzer.
+Manifest Parser - Language ecosystem package dependency parser.
 
-Analyzes third-party dependencies across multiple language ecosystems:
+PARSE PHASE component that extracts dependencies from package manifest files:
 - Python (requirements.txt, pyproject.toml, setup.py, Pipfile)
 - TypeScript/JavaScript (package.json, yarn.lock, package-lock.json)
 - Rust (Cargo.toml, Cargo.lock)
@@ -9,6 +9,9 @@ Analyzes third-party dependencies across multiple language ecosystems:
 - C# (.csproj, packages.config)
 - Go (go.mod, go.sum)
 - C++ (conanfile.txt, CMakeLists.txt)
+
+This is a PARSER, not an analyzer - it writes to structure.db during parse phase.
+For analysis/queries, use MetricsAnalyzer.
 """
 import json
 import re
@@ -18,15 +21,16 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 
-class EcosystemAnalyzer:
+class ManifestParser:
     """
-    Analyzes package manager files and external dependencies.
+    Parses package manager manifest files and extracts external dependencies.
 
-    Tracks:
-    - External package dependencies and versions
-    - Dependency conflicts across the repository
-    - Outdated dependencies (requires external data)
-    - Temporal coupling of dependency updates
+    PARSE PHASE: Extracts and writes to structure.db:
+    - External package dependencies → external_dependencies table
+    - Version conflicts → dependency_conflicts table
+    - Package manager metadata → package_managers table
+
+    For ANALYSIS/QUERIES: Use MetricsAnalyzer methods
     """
 
     def __init__(self, repo_path: Path, structure_db: sqlite3.Connection):
@@ -128,12 +132,14 @@ class EcosystemAnalyzer:
 
         self.structure_db.commit()
 
-    def analyze(self) -> Dict[str, int]:
+    def parse(self) -> Dict[str, int]:
         """
-        Perform ecosystem dependency analysis.
+        Parse package manifest files and write to structure.db.
+
+        PARSE PHASE method - extracts dependency data and persists to database.
 
         Returns:
-            Dictionary with analysis statistics
+            Dictionary with parsing statistics
         """
         stats = {
             "manifest_files": 0,
@@ -168,6 +174,15 @@ class EcosystemAnalyzer:
 
         self.structure_db.commit()
         return stats
+
+    def analyze(self) -> Dict[str, int]:
+        """
+        DEPRECATED: Use parse() instead.
+
+        This method is kept for backward compatibility but will be removed.
+        analyze() implies querying/analysis, but this class does parsing.
+        """
+        return self.parse()
 
     def _get_package_manager_id(self, name: str) -> Optional[int]:
         """Get package manager ID by name."""
@@ -649,3 +664,7 @@ class EcosystemAnalyzer:
             }
             for row in results
         ]
+
+
+# Backward compatibility alias - DEPRECATED
+EcosystemAnalyzer = ManifestParser
