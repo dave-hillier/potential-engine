@@ -9,9 +9,15 @@ import click
 from depanalysis.db_manager import DatabaseManager, get_repo_name_from_path
 from depanalysis.git_analyzer import GitAnalyzer, discover_repositories
 from depanalysis.metrics import MetricsAnalyzer
-from depanalysis.structure_analyzer import StructureAnalyzer
-from depanalysis.typescript_analyzer import TypeScriptAnalyzer
-from depanalysis.csharp_analyzer import CSharpAnalyzer
+from depanalysis.tree_sitter_python import TreeSitterPythonParser
+from depanalysis.tree_sitter_typescript import TreeSitterTypeScriptParser, TreeSitterJavaScriptParser
+from depanalysis.tree_sitter_csharp import TreeSitterCSharpParser
+from depanalysis.tree_sitter_multi_lang import (
+    TreeSitterJavaParser,
+    TreeSitterRustParser,
+    TreeSitterCppParser,
+    TreeSitterGoParser
+)
 from depanalysis.cross_language_analyzer import CrossLanguageAnalyzer
 from depanalysis.ecosystem_analyzer import EcosystemAnalyzer
 
@@ -103,54 +109,126 @@ def analyze_repo(repository: Path):
         click.echo(f"  ✓ Tracked {stats_hist['files_tracked']} files")
         click.echo(f"  ✓ Calculated {stats_hist['temporal_couplings']} temporal couplings")
 
-        # 2. Analyze Structure (Python)
-        click.echo("\nAnalyzing Python Code Structure...")
+        # 2. Analyze Structure (Python) - Using tree-sitter
+        click.echo("\nAnalyzing Python Code Structure (tree-sitter)...")
         conn_struct = db_manager.get_connection(repo_name, "structure")
-        struct_analyzer = StructureAnalyzer(repository, conn_struct)
-        stats_struct = struct_analyzer.analyze()
+        python_parser = TreeSitterPythonParser(repository, conn_struct)
+        stats_python = python_parser.analyze()
 
-        click.echo(f"  ✓ Parsed {stats_struct['files_parsed']} Python files")
-        click.echo(f"  ✓ Found {stats_struct['classes_found']} classes")
-        click.echo(f"  ✓ Found {stats_struct['functions_found']} functions")
-        click.echo(f"  ✓ Found {stats_struct['imports_found']} imports")
-        if stats_struct['errors'] > 0:
-            click.echo(f"  ! Encountered {stats_struct['errors']} parsing errors")
+        if stats_python['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_python['files_parsed']} Python files")
+            click.echo(f"  ✓ Found {stats_python['classes_found']} classes")
+            click.echo(f"  ✓ Found {stats_python['functions_found']} functions")
+            click.echo(f"  ✓ Found {stats_python['imports_found']} imports")
+            if stats_python['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_python['errors']} parsing errors")
+        else:
+            click.echo("  - No Python files found")
 
-        # 3. Analyze TypeScript/JavaScript (Tier 2 Feature 4)
-        click.echo("\nAnalyzing TypeScript/JavaScript Code Structure...")
-        ts_analyzer = TypeScriptAnalyzer(repository, conn_struct)
-        stats_ts = ts_analyzer.analyze()
+        # 3. Analyze TypeScript/JavaScript - Using tree-sitter
+        click.echo("\nAnalyzing TypeScript Code Structure (tree-sitter)...")
+        ts_parser = TreeSitterTypeScriptParser(repository, conn_struct)
+        stats_ts = ts_parser.analyze()
 
         if stats_ts['files_parsed'] > 0:
-            click.echo(f"  ✓ Parsed {stats_ts['files_parsed']} TypeScript/JavaScript files")
-            click.echo(f"    - {stats_ts['typescript_files']} TypeScript files")
-            click.echo(f"    - {stats_ts['javascript_files']} JavaScript files")
+            click.echo(f"  ✓ Parsed {stats_ts['files_parsed']} TypeScript files")
             click.echo(f"  ✓ Found {stats_ts['classes_found']} classes")
             click.echo(f"  ✓ Found {stats_ts['functions_found']} functions")
             click.echo(f"  ✓ Found {stats_ts['imports_found']} imports")
             if stats_ts['errors'] > 0:
                 click.echo(f"  ! Encountered {stats_ts['errors']} parsing errors")
         else:
-            click.echo("  - No TypeScript/JavaScript files found")
+            click.echo("  - No TypeScript files found")
 
-        # 3a. Analyze C# Code Structure
-        click.echo("\nAnalyzing C# Code Structure...")
-        cs_analyzer = CSharpAnalyzer(repository, conn_struct)
-        stats_cs = cs_analyzer.analyze()
+        click.echo("\nAnalyzing JavaScript Code Structure (tree-sitter)...")
+        js_parser = TreeSitterJavaScriptParser(repository, conn_struct)
+        stats_js = js_parser.analyze()
+
+        if stats_js['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_js['files_parsed']} JavaScript files")
+            click.echo(f"  ✓ Found {stats_js['classes_found']} classes")
+            click.echo(f"  ✓ Found {stats_js['functions_found']} functions")
+            click.echo(f"  ✓ Found {stats_js['imports_found']} imports")
+            if stats_js['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_js['errors']} parsing errors")
+        else:
+            click.echo("  - No JavaScript files found")
+
+        # 3a. Analyze C# Code Structure - Using tree-sitter
+        click.echo("\nAnalyzing C# Code Structure (tree-sitter)...")
+        cs_parser = TreeSitterCSharpParser(repository, conn_struct)
+        stats_cs = cs_parser.analyze()
 
         if stats_cs['files_parsed'] > 0:
             click.echo(f"  ✓ Parsed {stats_cs['files_parsed']} C# files")
             click.echo(f"  ✓ Found {stats_cs['classes_found']} classes")
-            click.echo(f"  ✓ Found {stats_cs['interfaces_found']} interfaces")
-            click.echo(f"  ✓ Found {stats_cs['structs_found']} structs")
-            click.echo(f"  ✓ Found {stats_cs['enums_found']} enums")
-            click.echo(f"  ✓ Found {stats_cs['methods_found']} methods")
-            click.echo(f"  ✓ Found {stats_cs['properties_found']} properties")
-            click.echo(f"  ✓ Found {stats_cs['using_statements_found']} using statements")
+            click.echo(f"  ✓ Found {stats_cs['functions_found']} methods")
+            click.echo(f"  ✓ Found {stats_cs['variables_found']} properties/fields")
+            click.echo(f"  ✓ Found {stats_cs['imports_found']} using statements")
             if stats_cs['errors'] > 0:
                 click.echo(f"  ! Encountered {stats_cs['errors']} parsing errors")
         else:
             click.echo("  - No C# files found")
+
+        # 3b. Analyze Java Code Structure - Using tree-sitter
+        click.echo("\nAnalyzing Java Code Structure (tree-sitter)...")
+        java_parser = TreeSitterJavaParser(repository, conn_struct)
+        stats_java = java_parser.analyze()
+
+        if stats_java['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_java['files_parsed']} Java files")
+            click.echo(f"  ✓ Found {stats_java['classes_found']} classes")
+            click.echo(f"  ✓ Found {stats_java['functions_found']} methods")
+            click.echo(f"  ✓ Found {stats_java['imports_found']} imports")
+            if stats_java['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_java['errors']} parsing errors")
+        else:
+            click.echo("  - No Java files found")
+
+        # 3c. Analyze Rust Code Structure - Using tree-sitter
+        click.echo("\nAnalyzing Rust Code Structure (tree-sitter)...")
+        rust_parser = TreeSitterRustParser(repository, conn_struct)
+        stats_rust = rust_parser.analyze()
+
+        if stats_rust['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_rust['files_parsed']} Rust files")
+            click.echo(f"  ✓ Found {stats_rust['classes_found']} structs/traits")
+            click.echo(f"  ✓ Found {stats_rust['functions_found']} functions")
+            click.echo(f"  ✓ Found {stats_rust['imports_found']} use statements")
+            if stats_rust['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_rust['errors']} parsing errors")
+        else:
+            click.echo("  - No Rust files found")
+
+        # 3d. Analyze C++ Code Structure - Using tree-sitter
+        click.echo("\nAnalyzing C++ Code Structure (tree-sitter)...")
+        cpp_parser = TreeSitterCppParser(repository, conn_struct)
+        stats_cpp = cpp_parser.analyze()
+
+        if stats_cpp['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_cpp['files_parsed']} C++ files")
+            click.echo(f"  ✓ Found {stats_cpp['classes_found']} classes/structs")
+            click.echo(f"  ✓ Found {stats_cpp['functions_found']} functions")
+            click.echo(f"  ✓ Found {stats_cpp['imports_found']} includes")
+            if stats_cpp['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_cpp['errors']} parsing errors")
+        else:
+            click.echo("  - No C++ files found")
+
+        # 3e. Analyze Go Code Structure - Using tree-sitter
+        click.echo("\nAnalyzing Go Code Structure (tree-sitter)...")
+        go_parser = TreeSitterGoParser(repository, conn_struct)
+        stats_go = go_parser.analyze()
+
+        if stats_go['files_parsed'] > 0:
+            click.echo(f"  ✓ Parsed {stats_go['files_parsed']} Go files")
+            click.echo(f"  ✓ Found {stats_go['classes_found']} types")
+            click.echo(f"  ✓ Found {stats_go['functions_found']} functions/methods")
+            click.echo(f"  ✓ Found {stats_go['imports_found']} imports")
+            if stats_go['errors'] > 0:
+                click.echo(f"  ! Encountered {stats_go['errors']} parsing errors")
+        else:
+            click.echo("  - No Go files found")
 
         # 4. Analyze Cross-Language Dependencies (Tier 2 Feature 5)
         click.echo("\nAnalyzing Cross-Language Dependencies...")
